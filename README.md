@@ -136,7 +136,7 @@ Getting a list of all live nexfs settings
 
 To get a list of the current live configuration settings, which may be different from the permanent setting that will become active when the nexfs server restarts, run:
 
-nexfscli liveconfig dump all
+	nexfscli liveconfig dump all
 
 
 Which will result in a listing of all configurations settings along with their current “live” values. 
@@ -146,7 +146,7 @@ Getting a list of all permanent nexfs settings
 
 To get a list of the permanent configuration settings, which may be different to the current live process settings, run:
 
-nexfscli configile dump all
+		nexfscli configile dump all
 
 
 Which will result in a listing of all configurations settings along with their current “permanent” values. 
@@ -185,12 +185,11 @@ nexfscli configfile get all MOUNTPOINT
 While will result in output similar to:
 
 	Tag Label = 'MOUNTPOINT'
-Value = '/mnt/nexfs'
-Help Text = 'NEXFS Mountpoint, needed for nexfscli to work, must match the nexfs mountpoint although this setting is not used here by the nexfs storgae server itself𖅓�'
-Validation:String = '1'
-Validation:Min(Value/StringLength) = '2'
-Validation:Max(Value/StringLength) = '2048'
-
+	Value = '/mnt/nexfs'
+	Help Text = 'NEXFS Mountpoint, needed for nexfscli to work, must match the nexfs mountpoint although this setting is not used here by the nexfs storgae server itself'
+	Validation:String = '1'
+	Validation:Min(Value/StringLength) = '2'
+	Validation:Max(Value/StringLength) = '2048'
 
 Change the value of a single live nexfs settings
 
@@ -198,13 +197,13 @@ To set the value of a single live configuration settings, which may be different
 
 	nexfscli liveconfig set {CONFIGTAGNAME} {NEWVALUE}
 
-Replace  {CONFIGTAGNAME} with the configuration name you would like to retrieve the value of, a list of configuration names and their usage can be found here
+	Replace  {CONFIGTAGNAME} with the configuration name you would like to retrieve the value of, a list of configuration names and their usage can be found here
 
-Replace {NEWVALUE} will the new required setting
+	Replace {NEWVALUE} will the new required setting
 
-For example, to pause the nexfs server, run
+	For example, to pause the nexfs server, run
 
-nexfscli liveconfig set NEXFSPAUSED 1
+		nexfscli liveconfig set NEXFSPAUSED 1
 
 
 Note: live configuration changes are not permanent and their values will revert back to the permanent configuration value when nexfs is restarted, to make changes permanent you must change the permanent value, as detailed below.
@@ -215,13 +214,13 @@ To set permanent configuration settings, which may be different from the live se
 
 	nexfscli configfile set {CONFIGTAGNAME} {NEWVALUE}
 
-Replace  {CONFIGTAGNAME} with the configuration name you would like to retrieve the value of, a list of configuration names and their usage can be found here
+	Replace  {CONFIGTAGNAME} with the configuration name you would like to retrieve the value of, a list of configuration names and their usage can be found here
 
-Replace {NEWVALUE} will the new required setting
+	Replace {NEWVALUE} will the new required setting
 
-For example, to change the nexfs mountpoint, run
+	For example, to change the nexfs mountpoint, run
 
-nexfscli configfile set MOUNTPOINT /mnt/nexfs
+		nexfscli configfile set MOUNTPOINT /mnt/nexfs
 
 Note: permanent configuration file changes do not become live unless the nexfs server is restarted or the live value is updated, as detailed above.
 
