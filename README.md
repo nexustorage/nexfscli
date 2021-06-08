@@ -73,25 +73,25 @@ To get the current nexfs server status, run
 
 Which for a running nexfs server will result in output similar to:
 
-Nexfs Mountpoint: /mnt/nexfs
-Server Status: OK
-Release: p1.00rc1
-Software Expires: Fri 2021-07-30 12:18:45
-Process ID: 2874971
-Uptime: 2 days 2 hours 14 minutes 49 seconds
-Open Files: 3/113
-Tier1 Struct Status: OK
-Tier1 Status: OK
-Tier1 Theashold Level: OK
-Tier1 Floor Level: FloorWaterMark
-Tier2 Status: OK
-Tier2 Theashold Level: OK
-Tier2 Floor Level: OK
-Tier3 Status: OK
-Job Scheduler: Enabled
-BG Migration Scheduler: Enabled
-Deletion Scheduler: Enabled
-Manual Commands: Enabled
+	Nexfs Mountpoint: /mnt/nexfs
+	Server Status: OK
+	Release: p1.00rc1
+	Software Expires: Fri 2021-07-30 12:18:45
+	Process ID: 2874971
+	Uptime: 2 days 2 hours 14 minutes 49 seconds
+	Open Files: 3/113
+	Tier1 Struct Status: OK
+	Tier1 Status: OK
+	Tier1 Theashold Level: OK
+	Tier1 Floor Level: FloorWaterMark
+	Tier2 Status: OK
+	Tier2 Theashold Level: OK
+	Tier2 Floor Level: OK
+	Tier3 Status: OK
+	Job Scheduler: Enabled
+	BG Migration Scheduler: Enabled
+	Deletion Scheduler: Enabled
+	Manual Commands: Enabled
 
 Getting nexfs release information
 
