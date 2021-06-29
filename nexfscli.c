@@ -34,7 +34,7 @@
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "0.4dev1"
+#define NEXFSCLIRELEASE "p1.00rc4"
 #define QUEUELIST 1 
 
 
@@ -67,7 +67,7 @@ int generateconfigfiles(char *argv[])
       res=chown(basefoldername, 0, 0);
       if ( res != 0 )
       {
-        printf("%s: Failed to create config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+        printf("%s: Failed to chown config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
         return -errno;
       }
     }
@@ -82,12 +82,12 @@ int generateconfigfiles(char *argv[])
       return -errno;
     }
 
-    if (( errno == 0 ) || ( errno != EEXIST ))
+    if ( errno != EEXIST )
     {
       res=chown(basefoldername, 0, 0);
-      if (( res != 0 )  || ( errno != EEXIST ))
+      if ( res != 0 )  
       {
-        printf("%s: Failed to create config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+        printf("%s: Failed to chown config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
         return -errno;
       }
     }
@@ -557,7 +557,7 @@ int dumpconfig(int whichconfig)
     }
     else
     {
-      if (( strcmp(GFSCONFIGTAGS[loop],"NEXFSCMD") != 0 )  && ( strcmp(GFSCONFIGTAGS[loop],"ROOTONLYACCESS") != 0 )&&  ( strcmp(GFSCONFIGTAGS[loop],"DEFAULTPERMISSIONS")   )) // NEXFSCMD is not a liveconfig
+      if (( strcmp(GFSCONFIGTAGS[loop],"NEXFSCMD") != 0 )  && ( strcmp(GFSCONFIGTAGS[loop],"ROOTONLYACCESS") != 0 )) // NEXFSCMD is not a liveconfig
         if ( (res=getliveconfig(GFSCONFIGTAGS[loop],returnbuf,2048)) < 0 ) return res;
     }
     printf("%s:%s\n",GFSCONFIGTAGS[loop],returnbuf);
@@ -860,7 +860,6 @@ int startserver()
   int res=0;
   char mountpoint[2048];
   char ALLOWOTHERS[2];
-  char DEFAULTPERMISSIONS[2];
   char NEXFSCMD[2048];
   char CMD[4400];
   char LOCALCMD[4402];
@@ -889,14 +888,6 @@ int startserver()
     return -errno;
   }
 
-  res=gfs_getconfig(GFSVALUE,"DEFAULTPERMISSIONS",DEFAULTPERMISSIONS,0);
-
-  if ( res == -1 )
-  {
-    printf("Failed to retrieve nexfs DEFAULTPERMISSIONS from configuration data, errno %d - %s\n",errno,strerror(errno));
-    return -errno;
-  }
-
   if ( ismounted() == 1 )
   {
     printf("nexfs is registrered by the kernel as mounted for mountpoint %s\n",mountpoint);
@@ -907,17 +898,9 @@ int startserver()
   if ( checkdirectoryexists("T1DDIR","T1DDIRENABLED") != 0 ) return -1; 
   if ( checkdirectoryexists("T2DDIR","T2DDIRENABLED") != 0 ) return -1; 
 
-  if ((  atoi(ALLOWOTHERS) == 0 ) && (atoi(DEFAULTPERMISSIONS) == 1 ))
-  {
-    snprintf(CMD,4400,"%s -o allow_other,default_permissions %s",NEXFSCMD,mountpoint);
-  }
-  else if ((  atoi(ALLOWOTHERS) == 0 ) && ( atoi(DEFAULTPERMISSIONS) == 0 ))
+  if (  atoi(ALLOWOTHERS) == 0 ) 
   {
     snprintf(CMD,4400,"%s -o allow_other %s",NEXFSCMD,mountpoint);
-  }
-  else if ((  atoi(ALLOWOTHERS) == 1 ) && ( atoi(DEFAULTPERMISSIONS) == 1 ))
-  { 
-    snprintf(CMD,4400,"%s -o default_permissions %s",NEXFSCMD,mountpoint);
   }
   else
   {
@@ -1064,7 +1047,7 @@ int displayfileinfo(char *filename, int option )
 
   if ( option == 1 ) 
   {
-    if ( (res = fgetxattr(sfp, "user.gfsid", returnbuf, 37)) == -1 )
+    if ( (res = fgetxattr(sfp, "user.nexfsgfsid", returnbuf, 37)) == -1 )
     {
       printf("ERROR: Failed to retrive UID, error - %s\n",strerror(errno));
       return -errno;
@@ -1073,7 +1056,7 @@ int displayfileinfo(char *filename, int option )
     printf("FID: %s\n", returnbuf);
   }
 
-  if ( (res = fgetxattr(sfp, "user.datapartsize", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsdatapartsize", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive datapartsize, error - %s\n",strerror(errno));
     return -errno;
@@ -1081,7 +1064,7 @@ int displayfileinfo(char *filename, int option )
   returnbuf[res]=0;
   printf("Datapartsize: %s\n", returnbuf);
 
-  if ( (res = fgetxattr(sfp, "user.mintiered", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsmintiered", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive mintiered, error - %s\n",strerror(errno));
     return -errno;
@@ -1089,7 +1072,7 @@ int displayfileinfo(char *filename, int option )
   returnbuf[res]=0;
   printf("Mintiered: %s\n", returnbuf);
 
-  if ( (res = fgetxattr(sfp, "user.maxtiered", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsmaxtiered", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive maxtiered, error - %s\n",strerror(errno));
     return -errno;
@@ -1097,7 +1080,7 @@ int displayfileinfo(char *filename, int option )
   returnbuf[res]=0;
   printf("Maxtiered: %s\n", returnbuf);
 
-  if ( (res = fgetxattr(sfp, "user.lockedtotier", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfslockedtotier", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive lockedtotier, error - %s\n",strerror(errno));
     return -errno;
@@ -1105,7 +1088,7 @@ int displayfileinfo(char *filename, int option )
   returnbuf[res]=0;
   printf("LockToTier: %s\n", returnbuf);
 
-  if ( (res = fgetxattr(sfp, "user.oldesttier1datafile", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsoldesttier1datafile", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive oldesttier1datafile, error - %s\n",strerror(errno));
     return -errno;
@@ -1113,7 +1096,7 @@ int displayfileinfo(char *filename, int option )
   returnbuf[res]=0;
   printf("Oldesttier1datafile: %s\n", returnbuf);
 
-  if ( (res = fgetxattr(sfp, "user.oldesttier2datafile", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsoldesttier2datafile", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive oldesttier2datafile, error - %s\n",strerror(errno));
     return -errno;
@@ -1122,7 +1105,7 @@ int displayfileinfo(char *filename, int option )
   printf("Oldesttier2datafile: %s\n", returnbuf);
 
 
-  if ( (res = fgetxattr(sfp, "user.structureversion", returnbuf, 33)) == -1 )
+  if ( (res = fgetxattr(sfp, "user.nexfsstructureversion", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive structureversion, error - %s\n",strerror(errno));
     return -errno;

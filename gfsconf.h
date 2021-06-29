@@ -39,7 +39,7 @@ int GFSNULLTAGLENGTH;
 
 // int ATTRBTIMEOUTMS=-1; // needs to be made a configurable
 
-#define GFSCONFIGTAGSCOUNT 72  // tags-1 (release not included)
+#define GFSCONFIGTAGSCOUNT 77  // tags-1 (release not included)
 #define GFSCONFIGTAGSIZE 50
 
 extern char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE]; 
@@ -129,7 +129,7 @@ int BGMIGRATIONSLEEPMS;  // time in ms to sleep between each background migratio
 
 // Define BGMIRGATIONT1FLOOR
 int BGMIGRATIONT1FLOOR;  // the max number of JobScheduler threads
-#define DEFAULTBGMIGRATIONT1FLOOR "0"
+#define DEFAULTBGMIGRATIONT1FLOOR "50"
 #define BGMIGRATIONT1FLOORTAG "BG Migrations Tier1 Floor Percentage"
 #define BGMIGRATIONT1FLOORHELP "Percentange used that bg migrations should aim to reduce Tier-1 to during scheduled window (inconjuction with defined last used/accessed)"
 #define BGMIGRATIONT1FLOORVALIDATESTRING 0
@@ -230,7 +230,7 @@ int T2DDIRENABLED;  // second highest pref local data storage location
 
 // Define T3DDIRENABLED
 int T3DDIRENABLED;  // Tier-3 storage location (S3 Compabitable)
-#define DEFAULTT3DDIRENABLED "1"
+#define DEFAULTT3DDIRENABLED "0"
 #define T3DDIRENABLEDTAG "Enable the Tier-3 S3 Compatible data storage location"
 #define T3DDIRENABLEDHELP "Enable the Tier-3 S3 Compatible data storage location"
 #define T3DDIRENABLEDVALIDATESTRING 0
@@ -251,7 +251,7 @@ int T1LOWWATERMARK;  // Tier-1 dont use for reads that cannot already be served 
 
 // Define T1HIGHWATERMARK
 int T1HIGHWATERMARK;  // Tier-1 only serv reads and write for data already at T1 if percent used T1 is hit, start migrating data to next tier  
-#define DEFAULTT1HIGHWATERMARK "80"
+#define DEFAULTT1HIGHWATERMARK "85"
 #define T1HIGHWATERMARKTAG "Tier-1 High Water Mark"
 #define T1HIGHWATERMARKHELP "Tier-1 High Water Mark, serv only writes reads that can already be served by T1, start migrating data to next tier"
 #define T1HIGHWATERMARKVALIDATESTRING 0
@@ -261,7 +261,7 @@ int T1HIGHWATERMARK;  // Tier-1 only serv reads and write for data already at T1
 
 // Define T2LOWWATERMARK
 int T2LOWWATERMARK;  // Tier-2 dont use for reads that cannot already be served by T2 when this percent used T2 is hit, start migrating data to next tier  
-#define DEFAULTT2LOWWATERMARK "80"
+#define DEFAULTT2LOWWATERMARK "75"
 #define T2LOWWATERMARKTAG "Tier-2 Low Water Mark"
 #define T2LOWWATERMARKHELP "Tier-2 Low Water Mark, serv only writes, and reads that can already be served by T2, other reads driect from next tier, start migrating data to next tier"
 #define T2LOWWATERMARKVALIDATESTRING 0
@@ -271,7 +271,7 @@ int T2LOWWATERMARK;  // Tier-2 dont use for reads that cannot already be served 
 
 // Define T2HIGHWATERWATERMARK
 int T2HIGHWATERMARK;  // Tier-1 only serv reads and write for data already at T1 if percent used T1 is hit, start migrating data to next tier  
-#define DEFAULTT2HIGHWATERMARK "80"
+#define DEFAULTT2HIGHWATERMARK "85"
 #define T2HIGHWATERMARKTAG "Tier-2 High Water Mark"
 #define T2HIGHWATERMARKHELP "Tier-2 High Water Mark, serv only writes reads that can already be served by T2, start migrating data to next tier"
 #define T2HIGHWATERMARKVALIDATESTRING 0
@@ -281,7 +281,7 @@ int T2HIGHWATERMARK;  // Tier-1 only serv reads and write for data already at T1
 
 // Define SMARTPROTECTENABLED
 int SMARTPROTECTENABLED;  // Enable Smart Protection
-#define DEFAULTSMARTPROTECTENABLED "1"
+#define DEFAULTSMARTPROTECTENABLED "0"
 #define SMARTPROTECTENABLEDTAG "Smart Protect Enabled"
 #define SMARTPROTECTENABLEDHELP "Smart Protect Enabled, controlls both smartprotect and smart protect open file cycle, 0=off, 1=on"
 #define SMARTPROTECTENABLEDVALIDATESTRING 0
@@ -301,7 +301,7 @@ int SMARTPROTECT;  // Continuous Protection
 
 // Define SMARTPROTECTOPENFILECYCLE
 int SMARTPROTECTOPENFILECYCLE;  // when to smart protect an open file
-#define DEFAULTSMARTPROTECTOPENFILECYCLE "5"
+#define DEFAULTSMARTPROTECTOPENFILECYCLE "60"
 #define SMARTPROTECTOPENFILECYCLETAG "Smart Protect Open File"
 #define SMARTPROTECTOPENFILECYCLEHELP "How often in minutes to smart protect change datapart on a long time open file, 0=never, max=43200"
 #define SMARTPROTECTOPENFILECYCLEVALIDATESTRING 0
@@ -331,7 +331,7 @@ int SMARTTIER;  // Continuous Tiering
 
 // Define SMARTTIEROPENFILECYCLE
 int SMARTTIEROPENFILECYCLE;  // when to scan for smart tier an open file
-#define DEFAULTSMARTTIEROPENFILECYCLE "60"
+#define DEFAULTSMARTTIEROPENFILECYCLE "120"
 #define SMARTTIEROPENFILECYCLETAG "Smart Tier Start Cycle" 
 #define SMARTTIEROPENFILECYCLEHELP "How often in minutes to smart tier scans a open files dataparts, 0=never, max=43200"
 #define SMARTTIEROPENFILECYCLEVALIDATESTRING 0
@@ -581,6 +581,17 @@ int T3S3RETRIES;  // Time to wait before retring a failed S3 request
 #define T3S3RETRIESVALIDATEMAX 12
 #define T3S3RETRIESRESTARTREQUIRED 0
 
+// Define T3S3REQTIMEOUT
+int T3S3MAXREQTIME;  // Time passed before aborting a S3 request
+#define DEFAULTT3S3MAXREQTIME "120"
+#define T3S3MAXREQTIMETAG "T3 S3 Max Request Time"
+#define T3S3MAXREQTIMEHELP "The maximum number of seconds a S3 request can take before it is aborted"
+#define T3S3MAXREQTIMEVALIDATESTRING 0
+#define T3S3MAXREQTIMEVALIDATEMIN 5
+#define T3S3MAXREQTIMEVALIDATEMAX 3600
+#define T3S3MAXREQTIMERESTARTREQUIRED 0
+
+
 // Define T3AWSSecretAccessKey
 char T3AWSSecretAccessKey[2048];  // The Secret Access Key 
 #define DEFAULTT3AWSSecretAccessKey "minioadmin"
@@ -662,15 +673,15 @@ int ROOTONLYACCESS;
 #define ROOTONLYACCESSVALIDATEMAX 1
 #define ROOTONLYACCESSRESTARTREQUIRED 1
 
-// Define DEFAULTPERMISSIONS
-int DEFAULTPERMISSIONS; // if to set mount option default_permissions;
-#define DEFAULTDEFAULTPERMISSIONS "1"
-#define DEFAULTPERMISSIONSTAG "DEFAULTPERMISSIONS"
-#define DEFAULTPERMISSIONSHELP "Enables permission checking, restricting access based on file mode"
-#define DEFAULTPERMISSIONSVALIDATESTRING 0
-#define DEFAULTPERMISSIONSVALIDATEMIN 0
-#define DEFAULTPERMISSIONSVALIDATEMAX 1
-#define DEFAULTPERMISSIONSRESTARTREQUIRED 1
+// Define ENFORCEPOSIXACLS
+int ENFORCEPOSIXACLS; 
+#define DEFAULTENFORCEPOSIXACLS "1"
+#define ENFORCEPOSIXACLSTAG "ENFORCEPOSIXACLS"
+#define ENFORCEPOSIXACLSHELP "Enforces POSIX ACL permission checking, restricting access based on file mode"
+#define ENFORCEPOSIXACLSVALIDATESTRING 0
+#define ENFORCEPOSIXACLSVALIDATEMIN 0
+#define ENFORCEPOSIXACLSVALIDATEMAX 1
+#define ENFORCEPOSIXACLSRESTARTREQUIRED 1
 
 // Define NEXFSCMD
 char NEXFSCMD[2048];
@@ -686,7 +697,7 @@ char NEXFSCMD[2048];
 int DELETEMOVETOTIER3;
 #define DEFAULTDELETEMOVETOTIER3 "1"
 #define DELETEMOVETOTIER3TAG "DELETEMOVETOTIER3" 
-#define DELETEMOVETOTIER3HELP "Moved Deleted datafiles to tier3 while waiting for final deletion"
+#define DELETEMOVETOTIER3HELP "Move Deleted datafiles to tier3 while waiting out final deletion glace period"
 #define DELETEMOVETOTIER3VALIDATESTRING 0
 #define DELETEMOVETOTIER3VALIDATEMIN 0
 #define DELETEMOVETOTIER3VALIDATEMAX 1
@@ -696,7 +707,7 @@ int DELETEMOVETOTIER3;
 int DELETERETAINDAYS;
 #define DEFAULTDELETERETAINDAYS "7"
 #define DELETERETAINDAYSTAG "DELETERETAINDAYS" 
-#define DELETERETAINDAYSHELP "Days to retain deleted datafiles before final deletion"
+#define DELETERETAINDAYSHELP "Days to retain deleted datafiles before final deletion (grace period)"
 #define DELETERETAINDAYSVALIDATESTRING 0
 #define DELETERETAINDAYSVALIDATEMIN 0
 #define DELETERETAINDAYSVALIDATEMAX 10000
@@ -823,22 +834,63 @@ char NEXFSLICENSEKEY[4096];
 #define NEXFSLICENSEKEYRESTARTREQUIRED 0 
 
 // Define NEXFSAPICHANGECMDGROUP
-int NEXFSAPICHANGECMDGROUP;
+int NEXFSAPICHANGECMDGROUP; // NOT IN USE
 #define DEFAULTNEXFSAPICHANGECMDGROUP "0"
 #define NEXFSAPICHANGECMDGROUPTAG "NEXFSAPICHANGECMDGROUP"
-#define NEXFSAPICHANGECMDGROUPHELP "" 
+#define NEXFSAPICHANGECMDGROUPHELP "The user group who can issue commands against the nexfs api" 
 #define NEXFSAPICHANGECMDGROUPVALIDATESTRING 0
 #define NEXFSAPICHANGECMDGROUPVALIDATEMIN 0
 #define NEXFSAPICHANGECMDGROUPVALIDATEMAX 65536 
 #define NEXFSAPICHANGECMDGROUPRESTARTREQUIRED 0
 
 // Define NEXFSAPICHANGECONFGROUP
-int NEXFSAPICHANGECONFGROUP;
+int NEXFSAPICHANGECONFGROUP; // NOT IN USE
 #define DEFAULTNEXFSAPICHANGECONFGROUP "0"
 #define NEXFSAPICHANGECONFGROUPTAG "NEXFSAPICHANGECONFGROUP"
-#define NEXFSAPICHANGECONFGROUPHELP "" 
+#define NEXFSAPICHANGECONFGROUPHELP "The user group who can issue configuration requests against the nexfs api" 
 #define NEXFSAPICHANGECONFGROUPVALIDATESTRING 0
 #define NEXFSAPICHANGECONFGROUPVALIDATEMIN 0
 #define NEXFSAPICHANGECONFGROUPVALIDATEMAX 65536 
 #define NEXFSAPICHANGECONFGROUPRESTARTREQUIRED 0
+
+// Define DROPCACHEONOPEN
+int DROPCACHEONOPEN;
+#define DEFAULTDROPCACHEONOPEN "0"
+#define DROPCACHEONOPENTAG "DROPCACHEONOPEN"
+#define DROPCACHEONOPENHELP "Drop File Kernel Cache on File Open" 
+#define DROPCACHEONOPENVALIDATESTRING 0
+#define DROPCACHEONOPENVALIDATEMIN 0
+#define DROPCACHEONOPENVALIDATEMAX 1
+#define DROPCACHEONOPENRESTARTREQUIRED 1
+
+// Define ENABLEHARDDELETE
+int ENABLEHARDDELETE;
+#define DEFAULTENABLEHARDDELETE "1"
+#define ENABLEHARDDELETETAG "ENBALEHARDDELETE"
+#define ENABLEHARDDELETEHELP "Enable Hard File Delete"
+#define ENABLEHARDDELETEVALIDATESTRING 0
+#define ENABLEHARDDELETEVALIDATEMIN 0
+#define ENABLEHARDDELETEVALIDATEMAX 1
+#define ENABLEHARDDELETERESTARTREQUIRED 1
+
+// Define ENABLEWRITEBUFFERING
+int ENABLEWRITEBUFFERING;
+#define DEFAULTENABLEWRITEBUFFERING "1"
+#define ENABLEWRITEBUFFERINGTAG "ENABLEWRITEBUFFERING"
+#define ENABLEWRITEBUFFERINGHELP "Enable Write Buffering, group small block writes together to increase performance, client may receive write ok before data is written to perm storage"
+#define ENABLEWRITEBUFFERINGVALIDATESTRING 0
+#define ENABLEWRITEBUFFERINGVALIDATEMIN 0
+#define ENABLEWRITEBUFFERINGVALIDATEMAX 1
+#define ENABLEWRITEBUFFERINGRESTARTREQUIRED 1
+
+// Define NEXFSMAXOPENFILES
+int NEXFSMAXOPENFILES;
+#define DEFAULTNEXFSMAXOPENFILES "65536"
+#define NEXFSMAXOPENFILESTAG "NEXFSMAXOPENFILES"
+#define NEXFSMAXOPENFILESHELP "Max number of open file handles Nexfs can support (includes all internal file handles)" 
+#define NEXFSMAXOPENFILESVALIDATESTRING 0
+#define NEXFSMAXOPENFILESVALIDATEMIN 1024
+#define NEXFSMAXOPENFILESVALIDATEMAX 1048576 
+#define NEXFSMAXOPENFILESRESTARTREQUIRED 1
+
 
