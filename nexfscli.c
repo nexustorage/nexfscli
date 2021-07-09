@@ -34,7 +34,7 @@
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "p1.00rc4"
+#define NEXFSCLIRELEASE "p0.1.00"
 #define QUEUELIST 1 
 
 
@@ -656,7 +656,10 @@ int liveconfig(int argc, char *argv[])
       return res;
     }
 
-    res=gfs_validateconfvalue(argv[3],argv[4],1);
+    if ( argc < 5 )
+      res=-ENOTSUP;
+    else
+      res=gfs_validateconfvalue(argv[3],argv[4],1);
 
     if ( res < 0 )
     {
@@ -780,7 +783,7 @@ int getserverstatus()
   res = pwrite(lcp, buf,65536 ,0 );
   if (res < 0 )
   {
-     printf("ERR: failed to send emptyy buffer to initate server status with errno %d - %s\n",errno,strerror(errno));
+     printf("ERR: failed to send empty buffer to initate server status with errno %d - %s\n",errno,strerror(errno));
      return -errno;
   } 
 
@@ -1290,7 +1293,10 @@ int configfiles(int argc, char *argv[])
     if ( strcmp(argv[3],"loglevel") == 0 )
       argv[3]=LOGLEVELTAG;
 
-    res=gfs_validateconfvalue(argv[3],argv[4],0);
+    if ( argc < 5 )
+      res=-1;
+    else
+      res=gfs_validateconfvalue(argv[3],argv[4],0);
 
     if ( res < 0 )
     {
