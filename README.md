@@ -1,5 +1,8 @@
 # nexfscli
-nexfscli.c Nexustorage nexfs commandline interface
+nexfscli.c Nexustorage nexfs commandline management interface
+
+Management CLI and example code for interfacing with nexfs using the file API
+
 
 This file is part of Nexustorage Nexfs Storage stack
 
