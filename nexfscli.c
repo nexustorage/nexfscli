@@ -34,9 +34,11 @@
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "p0.1.00"
+#define NEXFSCLIRELEASE "p0.1.01"
 #define QUEUELIST 1 
-
+char *MYNAME;
+const int EQUAL=0;
+const int GREATER=1;
 
 void print_connecterr()
 {
@@ -115,6 +117,16 @@ int printconfigtags()
   return 0;
 }
 
+int check_args(int args, int expected, int equalgreater )
+{
+  if ((( equalgreater == EQUAL ) && ( args != expected)) || ((equalgreater == GREATER) && ( args < expected )))
+  {
+    printf("%s: incorrect format, type %s help\n",MYNAME,MYNAME);
+    return 1;
+  }
+  return 0;
+}
+
 int getliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
 {
   int res=0;
@@ -158,11 +170,7 @@ int releaseinfo(int argc, char *argv[])
   int res=0;
   char returnbuf[16];
 
-  if ( argc < 4 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;
-  }
+  if ( check_args(argc, 4, GREATER )) return -1;
 
   if ( strcmp(argv[2],"get") == 0 )
   {
@@ -498,18 +506,10 @@ int jobqueue(int argc, char *argv[])
   {
     if ( (res=getjobqueue(returnbuf,&retbufsize)) != 0 ) return res;
   }
-  else if ( argc < 4 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;    
-  }
+  else if ( check_args(argc, 4, GREATER )) return -1;
   else if ( strcmp(argv[3],"jobid") == 0 )
   {
-    if ( argc < 5 )
-    {
-      printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-      return -1;    
-    }
+    if ( check_args(argc, 5, GREATER )) return -1;
 
     if ( (res=getjobqueue(returnbuf,&retbufsize)) != 0 ) return res;
 
@@ -571,32 +571,20 @@ int liveconfig(int argc, char *argv[])
   int res=0;
   char returnbuf[2048];
 
-  if ( argc < 3 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;    
-  }
+  if ( check_args(argc, 3, GREATER )) return -1;
 
   if ( strcmp(argv[2],"dumpall") == 0 )
   {
     return dumpconfig(1);
   }
 
-  if ( argc < 4 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;    
-  }
+  if ( check_args(argc, 4, GREATER )) return -1;
 
   if ( strcmp(argv[2],"get") == 0 )
   {
     if ( strcmp(argv[3],"value") == 0 )
     {
-      if ( argc != 5 )
-      {
-        printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-        return -1;    
-      }
+      if ( check_args(argc, 5, GREATER )) return -1;
 
       res=getliveconfig(argv[4],returnbuf,2047);
 
@@ -637,6 +625,8 @@ int liveconfig(int argc, char *argv[])
   {
     if ( strcmp(argv[3],"loglevel") == 0 )
     {
+      if ( check_args(argc, 5, EQUAL )) return -1;
+
       res= setliveconfig("GFSLOGLEVEL",argv[4],strlen(argv[4]));
 
       if ( res == 0 )
@@ -656,10 +646,9 @@ int liveconfig(int argc, char *argv[])
       return res;
     }
 
-    if ( argc < 5 )
-      res=-ENOTSUP;
-    else
-      res=gfs_validateconfvalue(argv[3],argv[4],1);
+    if ( check_args(argc, 5, GREATER )) return -1;
+
+    res=gfs_validateconfvalue(argv[3],argv[4],1);
 
     if ( res < 0 )
     {
@@ -944,7 +933,8 @@ int stopserver(int force)
   int res=0;
   int tries=0;
   int fd=0;
-  char mountpoint[2048];
+  char mountpoint[2048] = { 0 };
+  char currentdir[2048] = { 0 };
 
   res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
 
@@ -958,6 +948,28 @@ int stopserver(int force)
   {
     printf("nexfs not running for mountpoint %s\n",mountpoint);
     return -1;
+  }
+
+  if ( getcwd(currentdir,2048) == NULL )
+  {
+    printf("Failed to get current working directory: %s\n",strerror(errno));
+    return -1;
+  }
+
+  if ( strncmp(currentdir,mountpoint,strlen(mountpoint)) == 0 )
+  {
+    if ( strlen(currentdir) == strlen(mountpoint) ) 
+    {
+      printf("Cannot stop nexfs server from within its own mountpoint\n");
+      return -1;
+    }
+    
+    if ( strlen(currentdir) > strlen(mountpoint) )
+      if ( currentdir[strlen(mountpoint)] == '/' )
+      {
+        printf("Cannot stop nexfs server from within its own mountpoint\n");
+        return -1;
+      }
   }
 
   if ( force == 1 )
@@ -1139,11 +1151,7 @@ int setfileinfo(char *filename, char *attrib, char *newvalue)
 
 int file (int argc, char *argv[])
 {
-  if ( argc < 4 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;
-  }
+  if ( check_args(argc, 4, GREATER )) return -1;
 
   if ( strcmp(argv[2],"info") == 0 )
   {
@@ -1257,20 +1265,18 @@ int configfiles(int argc, char *argv[])
   char returnbuf[2048];
   char LOGLEVELTAG[] = "GFSLOGLEVEL";
 
-  if ( argc < 3 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;
-  }
+  if ( check_args(argc, 3, GREATER )) return -1;
 
   if ( strcmp(argv[2],"dumpall") == 0 )
   {
     return dumpconfig(0);
   }
 
+  if ( check_args(argc, 4, GREATER )) return -1;
+
   if ( argc != 5 ) 
   {
-    if ( ( argc != 4 ) && ( strcmp(argv[3],"loglevel") != 0 ))
+    if ( strcmp(argv[3],"loglevel") != 0 )
     {
       printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
       return -1;
@@ -1423,12 +1429,10 @@ int manageadmingroup(char *argv[])
   if ( strcmp(argv[4],"cmd") == 0 ) 
   {
     strcpy(CONFIGVAR,"SECURITYCMDGROUP");
-    // strcpy(CONFIGVARPATH,"NEXFSAPICHANGECMDGROUP");
   }
   else if ( strcmp(argv[4],"config") == 0 ) 
   {
     strcpy(CONFIGVAR,"SECURITYCONFGROUP");
-    // strcpy(CONFIGVARPATH,"NEXFSAPICHANGECONFGROUP");
   }
   else
   {
@@ -1517,7 +1521,7 @@ int manageadmingroup(char *argv[])
 
 int manageadminaccess(char *argv[])
 {
-    int accessrights=0;
+  int accessrights=0;
   int res=0;
   char access[10] = { 0 };
   char CONFIGVAR[32]= { 0 }; 
@@ -1578,22 +1582,29 @@ int manageadminaccess(char *argv[])
 
 int security(int argc, char *argv[])
 {
-  if ( argc != 7 )
+  if ( check_args(argc, 6, GREATER )) return -1;
+
+  if ( argc == 6 )
   {
-    if ( argc == 6 )
-    {
-      if ( strcmp(argv[3],"get") != 0 )
-      {
-        printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-        return -1;
-      }
-    }
-    else
+    if ( strcmp(argv[3],"get") != 0 )
     {
       printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
       return -1;
     }
-  } 
+  }
+  else if ( argc == 7 )
+  {
+    if ( strcmp(argv[3],"set") != 0 )
+    {
+      printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
+      return -1;
+    }
+  }
+  else
+  {
+    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
+    return -1;
+  }
 
   if (( strcmp(argv[2],"admin") == 0 ) &&  ( strcmp(argv[5],"group") == 0 ))
   {
@@ -1608,13 +1619,10 @@ int security(int argc, char *argv[])
 
   return -1;
 }
+
 int server(int argc, char *argv[])
 {
-  if ( argc != 3 )
-  {
-    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-    return -1;
-  }
+  if ( check_args(argc, 3, EQUAL )) return -1;
 
   if ( strcmp(argv[2],"start") == 0 )
   {
@@ -1649,7 +1657,7 @@ int init(int argc, char *argv[])
 
   res = stat(DEFAULTGFSCONFDIR,&stbuf);
 
-  if ( res != 0 && errno != ENOENT )
+  if (( res != 0 ) && (errno != ENOENT ))
   {
     printf("%s: Failed to stat configuration directory %s, errno %d - %s\n",argv[0],DEFAULTGFSCONFDIR,errno,strerror(errno));
     return -errno; 
@@ -1916,11 +1924,9 @@ int main(int argc, char *argv[])
 {
   int res=0;
 
-  if ( argc == 1 )
-  { 
-    printf("%s: unknown request, type %s help\n",argv[0],argv[0]);
-    return -1;
-  }
+  MYNAME=argv[0];
+
+  if ( check_args(argc, 2, GREATER )) return -1;
 
   if ( strcmp(argv[1],"-allhelp") == 0 )
   {
