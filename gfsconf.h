@@ -39,7 +39,7 @@ int GFSNULLTAGLENGTH;
 
 // int ATTRBTIMEOUTMS=-1; // needs to be made a configurable
 
-#define GFSCONFIGTAGSCOUNT 77  // tags-1 (release not included)
+#define GFSCONFIGTAGSCOUNT 83  // tags-1 (release not included)
 #define GFSCONFIGTAGSIZE 50
 
 extern char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE]; 
@@ -201,11 +201,31 @@ char T2DDIR[2048];  // second highest pref local data storage location
  char T1SDIR[2048];  // high pref local for structure file storage location
 #define DEFAULTT1SDIR "/nexfs/s1"
 #define T1SDIRTAG "nexfs high pref structure file storage location"
-#define T1SDIRHELP "Location local storage top be used for nexfs structure file storage, ensure all data moved before before restarting nexfs"
+#define T1SDIRHELP "Location local storage to be used for nexfs structure file storage"
 #define T1SDIRVALIDATESTRING 1
 #define T1SDIRVALIDATEMIN 2 
 #define T1SDIRVALIDATEMAX 2048 
 #define T1SDIRRESTARTREQUIRED 1 
+
+// Define T2SDIR
+ char T2SDIR[2048];  // high pref local for structure file storage location
+#define DEFAULTT2SDIR "/nexfs/s2"
+#define T2SDIRTAG "nexfs structure file replication storage location"
+#define T2SDIRHELP "Location local storage to be used for the replication of nexfs structure file information"
+#define T2SDIRVALIDATESTRING 1
+#define T2SDIRVALIDATEMIN 0 
+#define T2SDIRVALIDATEMAX 2048 
+#define T2SDIRRESTARTREQUIRED 1 
+
+// Define T2SDIR
+int T2SREPLICATIONMODE;  // high pref local for structure file storage location
+#define DEFAULTT2SREPLICATIONMODE "0"
+#define T2SREPLICATIONMODETAG "T2SREPLICATIONMODE"
+#define T2SREPLICATIONMODEHELP "Structure index information replication mode. 0=disabled, 1=asynchronous 2=synchronous"
+#define T2SREPLICATIONMODEVALIDATESTRING 0
+#define T2SREPLICATIONMODEVALIDATEMIN 0 
+#define T2SREPLICATIONMODEVALIDATEMAX 1 
+#define T2SREPLICATIONMODERESTARTREQUIRED 0 
 
 
 // Define T1DDIRENABLED
@@ -431,14 +451,13 @@ int WRITEBUFASYNC;  // write changed buffer content to disk on part change or cl
 
 // Define MAXFILENAMELENGTH
 int MAXFILENAMELENGTH;  // Max support file name length (number of chars)
-#define DEFAULTMAXFILENAMELENGTH "2000"
+#define DEFAULTMAXFILENAMELENGTH "8192"
 //#define DEFAULTMAXFILENAMELENGTH "8192"
 #define MAXFILENAMELENGTHTAG "Max File Name Length"
 #define MAXFILENAMELENGTHHELP "Max number of chars allowed in a file name including full path, currently limited to 2000 chars, will be increased to 65K in upcoming release"
 #define MAXFILENAMELENGTHVALIDATESTRING 0
 #define MAXFILENAMELENGTHVALIDATEMIN 1024 
-#define MAXFILENAMELENGTHVALIDATEMAX 2000 
-// #define MAXFILENAMELENGTHVALIDATEMAX 65536 
+#define MAXFILENAMELENGTHVALIDATEMAX 65536 
 #define MAXFILENAMELENGTHRESTARTREQUIRED 1 
 
 // Define T3S3ENABLEMD5DIGEST 
@@ -611,6 +630,26 @@ char T3AWSAccessKeyId[2048];  // The AWS Access Key Id
 #define T3AWSAccessKeyIdVALIDATEMIN 0
 #define T3AWSAccessKeyIdVALIDATEMAX 2048
 #define T3AWSAccessKeyIdRESTARTREQUIRED 0
+
+// Define T3INDEXSYNCENABLED
+int T3INDEXSYNCENABLED;  //
+#define DEFAULTT3INDEXSYNCENABLED "0"
+#define T3INDEXSYNCENABLEDTAG "T3INDEXSYNCENABLED"
+#define T3INDEXSYNCENABLEDHELP "Enable replication of structure index records to Tier-3 storage"
+#define T3INDEXSYNCENABLEDVALIDATESTRING 0
+#define T3INDEXSYNCENABLEDVALIDATEMIN 0
+#define T3INDEXSYNCENABLEDVALIDATEMAX 1
+#define T3INDEXSYNCENABLEDRESTARTREQUIRED 1 
+
+// Define T3INDEXSYNCPREFIX
+char T3INDEXSYNCPREFIX[2048];  // The AWS Access Key Id 
+#define DEFAULTT3INDEXSYNCPREFIX "/nexfsidx"
+#define T3INDEXSYNCPREFIXTAG "T3INDEXSYNCPREFIX"
+#define T3INDEXSYNCPREFIXHELP "Prefix of replicated structure information in the T3 storage bucket" 
+#define T3INDEXSYNCPREFIXVALIDATESTRING 1
+#define T3INDEXSYNCPREFIXVALIDATEMIN 0
+#define T3INDEXSYNCPREFIXVALIDATEMAX 2048
+#define T3INDEXSYNCPREFIXRESTARTREQUIRED 0
 
 // Define MOUNTPOINT
 char MOUNTPOINT[2048];  // The nexfs mountpoint, needed for nexfscli to communicate with the nexfs storage server
@@ -892,5 +931,25 @@ int NEXFSMAXOPENFILES;
 #define NEXFSMAXOPENFILESVALIDATEMIN 1024
 #define NEXFSMAXOPENFILESVALIDATEMAX 1048576 
 #define NEXFSMAXOPENFILESRESTARTREQUIRED 1
+
+// Define LOOKUPCACHEEXPIRY
+int LOOKUPCACHEEXPIRY;
+#define DEFAULTLOOKUPCACHEEXPIRY "30"
+#define LOOKUPCACHEEXPIRYTAG "LOOKUPCACHEEXPIRY"
+#define LOOKUPCACHEEXPIRYHELP "How many seconds the directory entries will be cached in the kernel, 0 = no caching"
+#define LOOKUPCACHEEXPIRYVALIDATESTRING 0
+#define LOOKUPCACHEEXPIRYVALIDATEMIN 0
+#define LOOKUPCACHEEXPIRYVALIDATEMAX 86400 
+#define LOOKUPCACHEEXPIRYRESTARTREQUIRED 1
+
+// Define ATTRCACHEXPIRY
+int ATTRCACHEXPIRY;
+#define DEFAULTATTRCACHEXPIRY "30"
+#define ATTRCACHEXPIRYTAG "ATTRCACHEXPIRY"
+#define ATTRCACHEXPIRYHELP "Number of seconds to cache directory entry attributes in the kernel, 0 = no caching"
+#define ATTRCACHEXPIRYVALIDATESTRING 0
+#define ATTRCACHEXPIRYVALIDATEMIN 0
+#define ATTRCACHEXPIRYVALIDATEMAX 86400 
+#define ATTRCACHEXPIRYRESTARTREQUIRED 1
 
 
