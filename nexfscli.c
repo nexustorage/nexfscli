@@ -34,7 +34,7 @@
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "p0.1.01"
+#define NEXFSCLIRELEASE "p0.1.0p3"
 #define QUEUELIST 1 
 char *MYNAME;
 const int EQUAL=0;
@@ -197,6 +197,7 @@ int getserverstats()
   char mountpoint[2048];
   int res;
   int lcp;
+  int readoffset=0;
   char TAGPATH[2224];
 
   res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
@@ -226,7 +227,15 @@ int getserverstats()
      return -errno;
   } 
 
-  res = pread(lcp,buf,65536,0);
+  while ( (res = pread(lcp,buf,65536,readoffset)) > 0 )
+  {
+    if ( res < 65536 )
+      buf[res]=0;
+    
+    readoffset+=(res-1);
+
+    printf("%s",buf);
+  }
 
   if ( res < 0 )
   {
@@ -234,7 +243,6 @@ int getserverstats()
      return -errno;
   }
 
-  printf("%s",buf);
 
   res = close(lcp);
 
@@ -834,7 +842,7 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
 
   if ( res != 0 )
   {
-    printf("ERROR: cannto stat directory %s configured for %s \n",thedir, CONFVAR);
+    printf("ERROR: cannot stat directory %s configured for %s \n",thedir, CONFVAR);
     return -1;
   }
 
@@ -1688,11 +1696,16 @@ int setupdatastores(int argc, char *argv[])
   int loop3=0;
   int T1DDIRENABLED;
   int T2DDIRENABLED;
+  int REPLICATIONMODE;
   char T1DDIR[256000]= {0};
   char T2DDIR[256000]= {0};
+  char T2SDIR[256000]= {0};
   char basefoldername[256016]= { 0 };
   char foldername[256064]= { 0 };
   char buffer[10] = { 0 };
+
+  
+
 
   res=gfs_getconfig(GFSVALUE,"T1SDIR",buffer,0);
 
@@ -1729,6 +1742,88 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
 
+  snprintf(basefoldername,260016,"%s/bc",buffer);
+  res = mkdir(basefoldername, 0755);
+
+  if (( res != 0 ) && ( errno != EEXIST ))
+  {
+    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(basefoldername,260016,"%s/bc/1e",buffer);
+  res = mkdir(basefoldername, 0755);
+
+  if (( res != 0 ) && ( errno != EEXIST ))
+  {
+    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(basefoldername,260016,"%s/bc/de",buffer);
+  res = mkdir(basefoldername, 0755);
+
+  if (( res != 0 ) && ( errno != EEXIST ))
+  {
+    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(basefoldername,260016,"%s/bc/df",buffer);
+  res = mkdir(basefoldername, 0755);
+
+  if (( res != 0 ) && ( errno != EEXIST ))
+  {
+    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+    return -errno;
+  }
+
+  res=gfs_getconfig(GFSVALUE,"T2SREPLICATIONMODE",buffer,0);
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs T2SREPLICATIONMODE from configuration data, errno %d - %s\n",errno,strerror(errno));
+    return -errno;
+  }
+
+  REPLICATIONMODE=atoi(buffer);
+
+  if ( REPLICATIONMODE > 0 )
+  {
+    res=gfs_getconfig(GFSVALUE,"T2SDIR",T2SDIR,0);
+    if ( res == -1 )
+    {
+      printf("Failed to retrieve nexfs T2SDIR from configuration data, errno %d - %s\n",errno,strerror(errno));
+      return -errno;
+    }
+
+    snprintf(basefoldername,260016,"%s/1e",T2SDIR);
+    res = mkdir(basefoldername, 0755);
+
+    if (( res != 0 ) && ( errno != EEXIST ))
+    {
+      printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+      return -errno;
+    }
+
+    snprintf(basefoldername,260016,"%s/de",T2SDIR);
+    res = mkdir(basefoldername, 0755);
+
+    if (( res != 0 ) && ( errno != EEXIST ))
+    {
+      printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+      return -errno;
+    }
+
+    snprintf(basefoldername,260016,"%s/df",T2SDIR);
+    res = mkdir(basefoldername, 0755);
+
+    if (( res != 0 ) && ( errno != EEXIST ))
+    {
+      printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+      return -errno;
+    }
+
+  }
 
   res=gfs_getconfig(GFSVALUE,"T1DDIRENABLED",buffer,0);
 
