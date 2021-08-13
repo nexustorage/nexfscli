@@ -5,8 +5,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#define RELEASE "p0.1.01"
-#define SOFTWAREEXPIRES 1631916310 // Sunday, Sept 17, 2021 12:00:00 PM GMT
+#define RELEASE "p0.1.0p3"
+#define SOFTWAREEXPIRES 1633089600 // Friday, October 1, 2021 12:00:00 PM GMT
 #define NEXFS_STRUCTVERSION "1.01"
 
 #define FUSE_USE_VERSION 61
@@ -65,7 +65,9 @@ time_t BINARYEXPIRES;
 int nexfsreleasetype;
 int nexfsreadonly;
 DIR *T1SDS;
+DIR *T2SDS;
 int64_t T1SDIRFD;
+int64_t T2SDIRFD;
 
 struct struct_gfsfilehandlepages
 {
@@ -93,6 +95,7 @@ struct struct_gfsfilehandlepages
 struct struct_gfsopenfilehandles
 {
   int64_t fds;
+  int64_t fds2;
   pthread_mutex_t lock;
   int lockowner;
   int previouspart; // used for stats and tiering
@@ -124,6 +127,7 @@ struct struct_serverstatus
   int tier2floorstatus;
   int tier3status;
   int tier1structstatus;
+  int tier2structstatus;
   int jobschedulerstatus;
   int bgmigrationschedulerstatus;
   int deletionschedulerstatus;
@@ -135,61 +139,3 @@ struct struct_gfsopenfilehandles *gfsfds;
 struct fuse_session *se;
 struct stat *gfsfds_attrs;
 pthread_mutex_t *gfsfds_attrslck;
-
-
-// Below (low level) not implemented in first release
-
-#define HASH_TABLE_MIN_SIZE 8192
-
-/* The node structure that we maintain as our local cache which maps
- * the ino numbers to their full path, this address is stored as part
- * of the value of the hash table */
-struct struct_lo_inode {
-	struct struct_lo_inode *next;
-	struct struct_lo_inode *prev;
-/* Full path of the underlying ext4 path
- * correspoding to its ino (easy way to extract back) */
-//	char *name;
-/* Inode numbers and dev no's of
- * underlying EXT4 F/s for the above path */
-	ino_t ino;
-	dev_t dev;
-/* inode number sent to lower F/S */
-	ino_t lo_ino;
-/* Lookup count of this node */
-	uint64_t nlookup;
-};
-
-/* The structure is used for maintaining the hash table
- * 1. array	--> Buckets to store the key and values
- * 2. use	--> Current size of the hash table
- * 3. size	--> Max size of the hash table
- * (we start with NODE_TABLE_MIN_SIZE)
- * 4. split	--> used to resize the table
- * (this is how fuse-lib does) */
-struct struct_hash_table {
-	struct struct_lo_inode **array;
-	size_t use;
-	size_t size;
-	size_t split;
-};
-
-/* The structure which is used to store the hash table
- // * and it is always comes as part of the req structure */
-//*struct struct_lo_data {
-//* hash table mapping key (inode no + complete path) -->
-// *  value (linked list of node's - open chaining) */
-//	struct struct_hash_table hash_table;
-//	/* protecting the above hash table */
-//	pthread_spinlock_t spinlock;
-//* put the root Inode '/' here itself for faster
-// * access and some other useful raesons */
-//	struct struct_lo_inode root;
-	/* do we still need this ? let's see*/
-//	double attr_valid;
-//}; */
-
-// struct struct_lo_data *gfsfuse_lo_data; 
-
-
-
