@@ -16,7 +16,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Nexfs Public Preview Basic management of Nexfs with nexfscli
+Basic management of Nexfs with nexfscli
 
 The recommended way to manage Nexfs is through the utility nexfscli which can be downloaded with nexfs.server.
 
@@ -75,18 +75,21 @@ Which for a running nexfs server will result in output similar to:
 
 	Nexfs Mountpoint: /mnt/nexfs
 	Server Status: OK
-	Release: p1.00rc1
-	Software Expires: Fri 2021-07-30 12:18:45
-	Process ID: 2874971
-	Uptime: 2 days 2 hours 14 minutes 49 seconds
-	Open Files: 3/113
+	Release: 0.9.1
+	Software Expires: Tue 2024-12-17 12:39:22
+	License: Core 5TB
+	Managed Capacity 1TB (1078GB)
+	Process ID: 4192
+	Uptime: 0 days 0 hours 4 minutes 50 seconds
+	Open Files: 1/7281
 	Tier1 Struct Status: OK
+	Tier2 Struct Status: OK
 	Tier1 Status: OK
 	Tier1 Theashold Level: OK
-	Tier1 Floor Level: FloorWaterMark
-	Tier2 Status: OK
-	Tier2 Theashold Level: OK
-	Tier2 Floor Level: OK
+	Tier1 Floor Level: OK
+	Tier2 Status: Disabled
+	Tier2 Theashold Level: Unknown
+	Tier2 Floor Level: Unknown
 	Tier3 Status: OK
 	Job Scheduler: Enabled
 	BG Migration Scheduler: Enabled
