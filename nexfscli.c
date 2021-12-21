@@ -34,8 +34,9 @@
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "p0.1.0p3"
+#define NEXFSCLIRELEASE "0.9"
 #define QUEUELIST 1 
+#define NEXFSCLI 1 
 char *MYNAME;
 const int EQUAL=0;
 const int GREATER=1;
@@ -105,6 +106,11 @@ int generateconfigfiles(char *argv[])
   return 0;
 } 
 
+int gfs_licensedetails(char * x, ...) // needed to link against gfsconf.o
+{
+  return 0;
+}
+
 int printconfigtags()
 {
   int loop=0;
@@ -134,7 +140,7 @@ int getliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
   char returnbuf[4096];
   char TAGPATH[4500];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
 
   if ( res == -1 )
   {
@@ -200,7 +206,7 @@ int getserverstats()
   int readoffset=0;
   char TAGPATH[2224];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -257,13 +263,13 @@ int getserverstats()
 
 int showfiletierusage(char *filename,int option )
 {
-  char buf[65536] = { 0 };
+  char buf[65537] = { 0 };
   char mountpoint[2048];
   int res;
   int lcp;
   char TAGPATH[2224];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -326,7 +332,7 @@ int movetotier(int tier,char *filetomove)
   char returnbuf[2048];
   char TAGPATH[2224];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
 
   if ( res == -1 )
   {
@@ -381,7 +387,7 @@ int setliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
   char returnbuf[2048];
   char TAGPATH[2224];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
 
   if ( res == -1 )
   {
@@ -391,7 +397,7 @@ int setliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
 
   snprintf(TAGPATH,2224,"%s/%s/%s",returnbuf,GFSCONFIGTAG,CONFTAG);
 
-  lcp = open( TAGPATH, O_WRONLY|O_CREAT|O_TRUNC); 
+  lcp = open( TAGPATH, O_WRONLY|O_CREAT|O_TRUNC,0600); 
 
   if (lcp == -1) 
   {
@@ -426,7 +432,7 @@ int getjobqueue(char *returnbuf, size_t *returnbufsize)
   char TAGPATH[2224]= { 0 };
   char readbuf[262144]= { 0 };
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -561,7 +567,7 @@ int dumpconfig(int whichconfig)
   {
     if ( whichconfig == 0 ) // configfile=0; liveconfig={other int}
     {
-      if ( (res=gfs_getconfig(GFSVALUE,GFSCONFIGTAGS[loop],returnbuf,0)) != 0 ) return res;
+      if ( (res=gfs_getconfig(GFSVALUE,GFSCONFIGTAGS[loop],returnbuf,sizeof(returnbuf),0)) != 0 ) return res;
     }
     else
     {
@@ -697,7 +703,7 @@ int ismounted()
   char *ptr;
   int res=1;
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -739,6 +745,72 @@ int ismounted()
   return 0;
 }
 
+int getlicensedetails()
+{
+  char buf[65536] = { 0 };
+  char mountpoint[2048];
+  int res;
+  int lcp;
+  char TAGPATH[2224];
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",errno,strerror(errno));
+    return -errno;
+  }
+
+  if ( ismounted() ==  0 )
+  {
+    printf("nexfs not running for mountpoint %s\n",mountpoint);
+    return 0;
+  }
+
+  snprintf(TAGPATH,2224,"%s/%s/licensedetails",mountpoint,GFSCMDTAG);
+
+  lcp = open( TAGPATH, O_RDWR|O_DIRECT ); 
+
+  if (lcp == -1) 
+  {
+    if ( errno == 2 )
+    {
+      printf("Failed to connect to server,  nexfs is likely not running for mountpoint %s\n",mountpoint);
+    }
+    else
+      printf("ERR: Failed to connect to a running nexfs server, errno %d - %s\n",errno,strerror(errno));
+
+    return -errno;
+  }
+
+  res = pwrite(lcp, buf,65536 ,0 );
+  if (res < 0 )
+  {
+     printf("ERR: failed to send empty buffer to initate server license details with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  } 
+
+  res = pread(lcp,buf,65536,0);
+
+  if ( res < 0 )
+  {
+     printf("ERR: failed to read license details from server with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  }
+
+  printf("%s",buf);
+
+  res = close(lcp);
+
+  if (res < 0 )
+  {
+     printf("ERR: failed to request server license details with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  } 
+
+  return 0;
+}
+
 int getserverstatus()
 {
   char buf[65536] = { 0 };
@@ -747,7 +819,7 @@ int getserverstatus()
   int lcp;
   char TAGPATH[2224];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -816,7 +888,7 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
 
   if ( ENABLEDVAR != NULL )
   {
-    res=gfs_getconfig(GFSVALUE,ENABLEDVAR,enabled,0);
+    res=gfs_getconfig(GFSVALUE,ENABLEDVAR,enabled,sizeof(enabled),0);
 
     if ( res != 0 )
     {
@@ -830,7 +902,7 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
     }
   }
 
-  res=gfs_getconfig(GFSVALUE,CONFVAR,thedir,0);
+  res=gfs_getconfig(GFSVALUE,CONFVAR,thedir,sizeof(thedir),0);
 
   if ( res != 0 )
   {
@@ -864,7 +936,7 @@ int startserver()
   char CMD[4400];
   char LOCALCMD[4402];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -872,7 +944,7 @@ int startserver()
     return -errno;
   }
 
-  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,0);
+  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,sizeof(NEXFSCMD),0);
 
   if ( res == -1 )
   {
@@ -880,7 +952,7 @@ int startserver()
     return -errno;
   }
 
-  res=gfs_getconfig(GFSVALUE,"ROOTONLYACCESS",ALLOWOTHERS,0);
+  res=gfs_getconfig(GFSVALUE,"ROOTONLYACCESS",ALLOWOTHERS,sizeof(ALLOWOTHERS),0);
 
   if ( res == -1 )
   {
@@ -900,11 +972,11 @@ int startserver()
 
   if (  atoi(ALLOWOTHERS) == 0 ) 
   {
-    snprintf(CMD,4400,"%s -o allow_other %s",NEXFSCMD,mountpoint);
+    snprintf(CMD,4400,"%s -o allow_other,noforget %s",NEXFSCMD,mountpoint);
   }
   else
   {
-    snprintf(CMD,4400,"%s %s",NEXFSCMD,mountpoint);
+    snprintf(CMD,4400,"%s -o noforget %s",NEXFSCMD,mountpoint);
   }
 
   snprintf(LOCALCMD,4402,"./%s",CMD);
@@ -939,12 +1011,13 @@ int startserver()
 int stopserver(int force)
 {
   int res=0;
-  int tries=0;
   int fd=0;
   char mountpoint[2048] = { 0 };
   char currentdir[2048] = { 0 };
+  char buf[65536] = { 0 };
+  char TAGPATH[2560] = { 0 };
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,0);
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
 
   if ( res == -1 )
   {
@@ -987,48 +1060,38 @@ int stopserver(int force)
     res = umount2(mountpoint,MNT_FORCE);
     printf("Sent hard shutdown request to Nexfs\n");
     return 0;
-  }
+  } 
 
-  res= setliveconfig("NEXFSPAUSED","1",1);
+  snprintf(TAGPATH,2224,"%s/%s/servershutdown",mountpoint,GFSCMDTAG);
 
-  if ( res == 0 )
-    res= setliveconfig("JOBSCHEDULARPAUSED","1",1);
+  fd = open( TAGPATH, O_RDWR|O_DIRECT ); 
 
-  if ( res == 0 )
-    res= setliveconfig("BGMIGRATIONSPAUSED","1",1);
-
-  if ( res == 0 )
+  if (fd == -1) 
   {
-    printf("Requested Pausing of Nexfs Operations\n");
-
-    printf("Waiting for outstanding nexfs operatings to complete");
-    while ( tries < 60 )
-    {
-      sleep(1);
-
-      if ( ( fd=open(GFSNULLTAG,O_RDONLY)) == -1 )
-      {
-        if ( errno ==  2 )
-          break;
-      }
-      close(fd);
-      tries++;
-      printf(".");
-    }
-
-    printf("\n");
-
-    if ( tries == 60 )
-      printf("Failed to paused Nexfs Operations, continuing shutdown\n");
+    print_connecterr();
+    return -errno;
   }
-  else
+
+  strncpy(buf,"CONFIRMSHUTDOWN",65536);
+
+  res = pwrite(fd, buf,65536 ,0 );
+  if (res < 0 )
   {
-    printf("Failed to pause Nexfs Operations, continuing shutdown\n");
+     printf("ERR: failed to send shutdown confirmation with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  } 
+
+  res = pread(fd,buf,65536,0);
+
+  if ( res < 0 )
+  {
+     printf("ERR: failed to confirm file tier info with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
   }
 
-  res = umount2(mountpoint,MNT_DETACH);
+  res = close(fd);
 
-  printf("Sent shutdown request to Nexfs\n");
+  printf("Issued shutdown request to Nexfs\n");
     
   return 0;
 }
@@ -1039,7 +1102,7 @@ int openstructurefile(char *filename, uint64_t *sfp)
   char returnbuf[2048];
   char SDIRFILE[8192];
 
-  res=gfs_getconfig(GFSVALUE,"T1SDIR",returnbuf,0);
+  res=gfs_getconfig(GFSVALUE,"T1SDIR",returnbuf,sizeof(returnbuf),0);
 
   if ( res < 0 )
   {
@@ -1065,6 +1128,7 @@ int displayfileinfo(char *filename, int option )
   char returnbuf[2048];
   int res;
   uint64_t sfp; 
+  struct stat stbuf = {0}; 
 
   if ( ( res=openstructurefile(filename,&sfp) ) < 0 ) return -errno;
 
@@ -1079,6 +1143,14 @@ int displayfileinfo(char *filename, int option )
     printf("FID: %s\n", returnbuf);
   }
 
+  if ( fstat(sfp,&stbuf) != 0 )
+  {
+    printf("ERROR: Failed to stat requested file, error - %s\n",strerror(errno));
+    return -errno;
+  }
+
+  printf("File Size: %ld\n",stbuf.st_size);
+  
   if ( (res = fgetxattr(sfp, "user.nexfsdatapartsize", returnbuf, 33)) == -1 )
   {
     printf("ERROR: Failed to retrive datapartsize, error - %s\n",strerror(errno));
@@ -1086,6 +1158,14 @@ int displayfileinfo(char *filename, int option )
   }
   returnbuf[res]=0;
   printf("Datapartsize: %s\n", returnbuf);
+
+  if ( (res = fgetxattr(sfp, "user.nexfsallocatedchunks", returnbuf, 33)) == -1 )
+  {
+    printf("ERROR: Failed to retrive allocatedchunks, error - %s\n",strerror(errno));
+    return -errno;
+  }
+  returnbuf[res]=0;
+  printf("Allocated Data Chunks: %s\n", returnbuf);
 
   if ( (res = fgetxattr(sfp, "user.nexfsmintiered", returnbuf, 33)) == -1 )
   {
@@ -1226,7 +1306,8 @@ int configfiles_setdefaults(int option)
 
   printf("\nPlease confirm overwrite of config file parms with requested defaults (y/n): ");
 
-  fgets(confirm,3,stdin);
+  while ( fgets(confirm,3,stdin) == NULL );
+
 
   if ( (strncmp(confirm,"y",1) == 0 ) || ( strncmp(confirm,"Y",1) == 0 ) || ( strncmp(confirm,"yes",3) == 0) || ( strncmp(confirm,"YES",3) == 0 ))
   {
@@ -1340,7 +1421,7 @@ int configfiles(int argc, char *argv[])
   {
     if ( strcmp(argv[3],"taglabel") == 0 )
     {
-      res=gfs_getconfig(GFSTAG,argv[4],returnbuf,0);
+      res=gfs_getconfig(GFSTAG,argv[4],returnbuf,sizeof(returnbuf),0);
 
       if ( res == -1 )
       {
@@ -1352,7 +1433,7 @@ int configfiles(int argc, char *argv[])
     }
     else if ( strcmp(argv[3],"loglevel") == 0 )
     {
-      res=gfs_getconfig(GFSVALUE,"GFSLOGLEVEL",returnbuf,2047);
+      res=gfs_getconfig(GFSVALUE,"GFSLOGLEVEL",returnbuf,sizeof(returnbuf),0);
       if ( res < 0 )
       {
         printf("%s: Failed to retrieve live log level, errno %d - %s\n",argv[0],errno,strerror(errno));
@@ -1363,7 +1444,7 @@ int configfiles(int argc, char *argv[])
     }
     else if ( strcmp(argv[3],"value") == 0 )
     {
-      res=gfs_getconfig(GFSVALUE,argv[4],returnbuf,0);
+      res=gfs_getconfig(GFSVALUE,argv[4],returnbuf,sizeof(returnbuf),0);
 
       if ( res < 0 )
       {
@@ -1375,7 +1456,7 @@ int configfiles(int argc, char *argv[])
     }
     else if ( strcmp(argv[3],"help") == 0 )
     {
-      res=gfs_getconfig(GFSHELP,argv[4],returnbuf,0);
+      res=gfs_getconfig(GFSHELP,argv[4],returnbuf,sizeof(returnbuf),0);
 
       if ( res == -1 )
       {
@@ -1387,28 +1468,28 @@ int configfiles(int argc, char *argv[])
     }
     else if ( strcmp(argv[3],"all") == 0 )
     {
-      res=gfs_getconfig(GFSTAG,argv[4],returnbuf,0);
+      res=gfs_getconfig(GFSTAG,argv[4],returnbuf,sizeof(returnbuf),0);
 
       if ( res > -1 )
       {
         printf("Tag Label = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVALUE,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSVALUE,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Value = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSHELP,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSHELP,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Help Text = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVSTRING,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSVSTRING,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:String = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVMIN,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSVMIN,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:Min(Value/StringLength) = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVMAX,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSVMAX,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:Max(Value/StringLength) = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSRESTART,argv[4],returnbuf,0);
+        res=gfs_getconfig(GFSRESTART,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Requires Restart = '%s'\n",returnbuf);
 
         return 0;
@@ -1455,7 +1536,7 @@ int manageadmingroup(char *argv[])
     if ( res < 0 )
     {
       printf("Cannot load liveconfig, attempting to load from configuration file\n");
-      res=gfs_getconfig(GFSVALUE,CONFIGVAR,buffer,0);
+      res=gfs_getconfig(GFSVALUE,CONFIGVAR,buffer,sizeof(buffer),0);
     }
     
     if ( res < 0 )
@@ -1557,7 +1638,7 @@ int manageadminaccess(char *argv[])
     if ( res < 0 )
     {
       printf("Cannot load liveconfig, attempting to load from configuration file\n");
-      res=gfs_getconfig(GFSVALUE,CONFIGVAR,buffer,0);
+      res=gfs_getconfig(GFSVALUE,CONFIGVAR,buffer,sizeof(buffer),0);
     }
     
     if ( res < 0 )
@@ -1640,6 +1721,10 @@ int server(int argc, char *argv[])
   {
     return ( getserverstatus() );
   }
+  else if ( strcmp(argv[2],"license") == 0 )
+  {
+    return ( getlicensedetails() );
+  }
   else if ( strcmp(argv[2],"stop") == 0 )
   {
     return ( stopserver(0) );
@@ -1697,17 +1782,14 @@ int setupdatastores(int argc, char *argv[])
   int T1DDIRENABLED;
   int T2DDIRENABLED;
   int REPLICATIONMODE;
-  char T1DDIR[256000]= {0};
-  char T2DDIR[256000]= {0};
-  char T2SDIR[256000]= {0};
-  char basefoldername[256016]= { 0 };
-  char foldername[256064]= { 0 };
+  char T1DDIR[8192]= {0};
+  char T2DDIR[8192]= {0};
+  char T2SDIR[8192]= {0};
+  char basefoldername[8196]= { 0 };
+  char foldername[8204]= { 0 };
   char buffer[10] = { 0 };
 
-  
-
-
-  res=gfs_getconfig(GFSVALUE,"T1SDIR",buffer,0);
+  res=gfs_getconfig(GFSVALUE,"T1SDIR",buffer,sizeof(buffer),0);
 
   if ( res == -1 )
   {
@@ -1715,7 +1797,7 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
   
-  snprintf(basefoldername,260016,"%s/1e",buffer);
+  snprintf(basefoldername,8196,"%s/1e",buffer);
   res = mkdir(basefoldername, 0755);
 
   if (( res != 0 ) && ( errno != EEXIST ))
@@ -1724,7 +1806,7 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
 
-  snprintf(basefoldername,260016,"%s/de",buffer);
+  snprintf(basefoldername,8196,"%s/de",buffer);
   res = mkdir(basefoldername, 0755);
 
   if (( res != 0 ) && ( errno != EEXIST ))
@@ -1733,7 +1815,7 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
 
-  snprintf(basefoldername,260016,"%s/df",buffer);
+  snprintf(basefoldername,8196,"%s/df",buffer);
   res = mkdir(basefoldername, 0755);
 
   if (( res != 0 ) && ( errno != EEXIST ))
@@ -1742,7 +1824,7 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
 
-  snprintf(basefoldername,260016,"%s/bc",buffer);
+  snprintf(basefoldername,8196,"%s/cf",buffer);
   res = mkdir(basefoldername, 0755);
 
   if (( res != 0 ) && ( errno != EEXIST ))
@@ -1751,34 +1833,7 @@ int setupdatastores(int argc, char *argv[])
     return -errno;
   }
 
-  snprintf(basefoldername,260016,"%s/bc/1e",buffer);
-  res = mkdir(basefoldername, 0755);
-
-  if (( res != 0 ) && ( errno != EEXIST ))
-  {
-    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
-    return -errno;
-  }
-
-  snprintf(basefoldername,260016,"%s/bc/de",buffer);
-  res = mkdir(basefoldername, 0755);
-
-  if (( res != 0 ) && ( errno != EEXIST ))
-  {
-    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
-    return -errno;
-  }
-
-  snprintf(basefoldername,260016,"%s/bc/df",buffer);
-  res = mkdir(basefoldername, 0755);
-
-  if (( res != 0 ) && ( errno != EEXIST ))
-  {
-    printf("%s: Failed to create structure directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
-    return -errno;
-  }
-
-  res=gfs_getconfig(GFSVALUE,"T2SREPLICATIONMODE",buffer,0);
+  res=gfs_getconfig(GFSVALUE,"T2SREPLICATIONMODE",buffer,sizeof(buffer),0);
   if ( res == -1 )
   {
     printf("Failed to retrieve nexfs T2SREPLICATIONMODE from configuration data, errno %d - %s\n",errno,strerror(errno));
@@ -1789,14 +1844,14 @@ int setupdatastores(int argc, char *argv[])
 
   if ( REPLICATIONMODE > 0 )
   {
-    res=gfs_getconfig(GFSVALUE,"T2SDIR",T2SDIR,0);
+    res=gfs_getconfig(GFSVALUE,"T2SDIR",T2SDIR,sizeof(T2SDIR),0);
     if ( res == -1 )
     {
       printf("Failed to retrieve nexfs T2SDIR from configuration data, errno %d - %s\n",errno,strerror(errno));
       return -errno;
     }
 
-    snprintf(basefoldername,260016,"%s/1e",T2SDIR);
+    snprintf(basefoldername,8196,"%s/1e",T2SDIR);
     res = mkdir(basefoldername, 0755);
 
     if (( res != 0 ) && ( errno != EEXIST ))
@@ -1805,7 +1860,7 @@ int setupdatastores(int argc, char *argv[])
       return -errno;
     }
 
-    snprintf(basefoldername,260016,"%s/de",T2SDIR);
+    snprintf(basefoldername,8196,"%s/de",T2SDIR);
     res = mkdir(basefoldername, 0755);
 
     if (( res != 0 ) && ( errno != EEXIST ))
@@ -1814,7 +1869,7 @@ int setupdatastores(int argc, char *argv[])
       return -errno;
     }
 
-    snprintf(basefoldername,260016,"%s/df",T2SDIR);
+    snprintf(basefoldername,8196,"%s/df",T2SDIR);
     res = mkdir(basefoldername, 0755);
 
     if (( res != 0 ) && ( errno != EEXIST ))
@@ -1825,7 +1880,7 @@ int setupdatastores(int argc, char *argv[])
 
   }
 
-  res=gfs_getconfig(GFSVALUE,"T1DDIRENABLED",buffer,0);
+  res=gfs_getconfig(GFSVALUE,"T1DDIRENABLED",buffer,sizeof(buffer),0);
 
   if ( res == -1 )
   {
@@ -1835,7 +1890,7 @@ int setupdatastores(int argc, char *argv[])
 
   T1DDIRENABLED=atoi(buffer);
 
-  res=gfs_getconfig(GFSVALUE,"T2DDIRENABLED",buffer,0);
+  res=gfs_getconfig(GFSVALUE,"T2DDIRENABLED",buffer,sizeof(buffer),0);
 
   if ( res == -1 )
   {
@@ -1847,7 +1902,7 @@ int setupdatastores(int argc, char *argv[])
 
   if ( T1DDIRENABLED == 1 )
   {
-    res=gfs_getconfig(GFSVALUE,"T1DDIR",T1DDIR,0);
+    res=gfs_getconfig(GFSVALUE,"T1DDIR",T1DDIR,sizeof(T1DDIR),0);
 
     if ( res == -1 )
     {
@@ -1858,7 +1913,7 @@ int setupdatastores(int argc, char *argv[])
 
   if ( T2DDIRENABLED == 1 )
   {
-    res=gfs_getconfig(GFSVALUE,"T2DDIR",T2DDIR,0);
+    res=gfs_getconfig(GFSVALUE,"T2DDIR",T2DDIR,sizeof(T2DDIR),0);
 
     if ( res == -1 )
     {
@@ -1876,9 +1931,9 @@ int setupdatastores(int argc, char *argv[])
     {
       basefoldername[0]=0;
       if (( loop1 == 0 ) && ( T1DDIRENABLED == 1 ))
-        snprintf(basefoldername,260016,"%s/%02x",T1DDIR,loop);
+        snprintf(basefoldername,8196,"%s/%02x",T1DDIR,loop);
       else if (( loop1 == 1 ) && ( T2DDIRENABLED == 1 ))
-        snprintf(basefoldername,260016,"%s/%02x",T2DDIR,loop);
+        snprintf(basefoldername,8196,"%s/%02x",T2DDIR,loop);
 
       if ( basefoldername[0] == 0 )
         continue;
@@ -1893,7 +1948,7 @@ int setupdatastores(int argc, char *argv[])
 
       for (loop2=0; loop2<256; loop2++)
       {
-        snprintf(foldername,256025,"%s/%02x",basefoldername,loop2);
+        snprintf(foldername,8204,"%s/%02x",basefoldername,loop2);
 
         res = mkdir(foldername, 0755);
 
@@ -1905,7 +1960,7 @@ int setupdatastores(int argc, char *argv[])
 
         for (loop3=0; loop3<16; loop3++)
         {
-          snprintf(foldername,256063,"%s/%02x/%0X",basefoldername,loop2,loop3);
+          snprintf(foldername,8204,"%s/%02x/%0X",basefoldername,loop2,loop3);
 
           res = mkdir(foldername, 0755);
 
@@ -1999,6 +2054,7 @@ int help(int argc, char *argv[])
   printf("server start\n");
   printf("server stop\n");
   printf("server forcestop\n");
+  printf("server license\n");
   printf("server stats\n");
   return 0;
 }
