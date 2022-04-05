@@ -1,7 +1,21 @@
 # nexfscli
-nexfscli.c Nexustorage nexfs commandline interface
+nexfscli.c Nexustorage nexfs commandline management interface
 
-This file is part of Nexustorage Nexfs Storage stack
+Management CLI and opensource example code for interfacing with nexfs using the file API
+
+Also distributed as part of Nexustorage Nexfs Storage stack http://www.nexustorage.com
+
+Nexfs combines block, file, object & cloud storage, presenting an intelligent single multi-protocol supported feature-rich storage pool
+
+As software-defined storage Nexfs offers flexibility, including the ability to configure and deploy storage systems your way; you choose the type of hardware, be that physical, virtual, cloud, or hybrid.
+
+Nexfs supports up to three storage tiers. With the hottest data located on the highest performance tier, inactive data is relocated to cost-effective object or cloud storage.
+
+Non written data blocks are thin provisioned; they do not consume physical storage or incur any storage cost. Optionally, Warm data can reside on a second storage tier. 
+
+Nexfs data migrations are transparent, occurring in the background,  yielding the best performance to cost ratio for a file's data. No longer is the lifecycle of a file limited in its entirety. 
+
+More information of Nexfs and its features: https://www.nexustorage.com/nexfs-features
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
@@ -232,3 +246,4 @@ Note: permanent configuration file changes do not become live unless the nexfs s
 
 
 Also see nexfscli and managing nexfs documentation at <https://www.nexustorage.com/nexfs-public-documentation-index>
+
