@@ -75,24 +75,27 @@ Which for a running nexfs server will result in output similar to:
 
 	Nexfs Mountpoint: /mnt/nexfs
 	Server Status: OK
-	Release: 0.9.1
-	Software Expires: Tue 2024-12-17 12:39:22
+	Release: 0.95
+	Software Expires: Fri 2027-03-19 18:38:17
 	License: Core 5TB
-	Managed Capacity 1TB (1078GB)
-	Process ID: 4192
-	Uptime: 0 days 0 hours 4 minutes 50 seconds
-	Open Files: 1/7281
+	Managed Capacity 0TB (7GB)
+	Process ID: 326455
+	Uptime: 0 days 0 hours 25 minutes 45 seconds
+	Open Files: 5/7281
 	Tier1 Struct Status: OK
 	Tier2 Struct Status: OK
 	Tier1 Status: OK
-	Tier1 Theashold Level: OK
-	Tier1 Floor Level: OK
+	Tier1 Threshold Level: LowWaterMark
+	Tier1 Floor Level: FloorWaterMark
 	Tier2 Status: Disabled
-	Tier2 Theashold Level: Unknown
-	Tier2 Floor Level: Unknown
+	Tier2 Threshold Level: OK
+	Tier2 Floor Level: OK
 	Tier3 Status: OK
+	iSCSI Status: OK
+	NFS Status: Unknown
+	Mgmt Web Server: Unknown
 	Job Scheduler: Enabled
-	BG Migration Scheduler: Enabled
+	BG Migration Scheduler: Paused
 	Deletion Scheduler: Enabled
 	Manual Commands: Enabled
 
@@ -228,4 +231,4 @@ To set permanent configuration settings, which may be different from the live se
 Note: permanent configuration file changes do not become live unless the nexfs server is restarted or the live value is updated, as detailed above.
 
 
-Also, see advanced nexfscli usage and managing nexfs using the nexfs direct management interface.
+Also see nexfscli and managing nexfs documentation at <https://www.nexustorage.com/nexfs-public-documentation-index>
