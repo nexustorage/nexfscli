@@ -28,31 +28,135 @@
 #include <sys/xattr.h>
 #include <sys/mount.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <grp.h>
 #include <ctype.h>
+#include <sys/wait.h>
+ #include <sys/time.h>
 #include "gfsconf.h"
 #include "gfsconf_funcs.h"
 #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "0.9"
+#define NEXFSCLIRELEASE "0.95"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
+
+struct struct_switches {
+  int upgrade;
+  int reinstall;
+  int configoverwrite;
+  int nosoftwareinstall;
+  int noserviceinstall; 
+  int noinit;
+  int nogenerateconfigfiles;
+  int nonfs;
+  int noiscsi;
+  int accepttermsandcondition;
+  int noinstallpackages;
+  int noprompt;
+  int nocheckbinaries;
+
+} cmdlineswitches = { 0 };
+
 char *MYNAME;
 const int EQUAL=0;
 const int GREATER=1;
+int slient=0;
+// a few "ghost" functions that need to be defined to link against gfsconf.o
+void gfs_startnfssystem()
+{
+  return;
+}
+void gfs_stopnfssystem(void)
+{
+  return;
+}
+void gfs_createnfsexportsymlink()
+{
+  return;
+}
+// end of ghost functions
 
+int process_argvswitches(int argc, char *argv[] )
+{
+  int loop=0;
+
+  for( loop=1; loop < argc; loop++ )
+  {
+    if ( strncmp(argv[loop],"--",2) == 0 )
+    {
+      switch (gfs_configkeynamesum(argv[loop]))
+      {
+        case 4521: // --upgrade
+          cmdlineswitches.upgrade=1;
+          break;
+
+        case 6940: // --reinstall
+          cmdlineswitches.reinstall=1;
+          break;
+
+        case 20430: // --nosoftwareinstall
+          cmdlineswitches.nosoftwareinstall=1;
+          break;
+
+        case 18250: // --noserviceinstall
+          cmdlineswitches.noserviceinstall=1;
+          break;
+
+        case 3757: // --noinit
+          cmdlineswitches.noinit=1;
+          break;
+
+        case 29027: // --nogenerateconfigfiles 
+          cmdlineswitches.nogenerateconfigfiles=1;
+          break;
+
+        case 2876: // --nonfs 
+          cmdlineswitches.nonfs=1;
+          break;
+
+        /* case 4682: // --noiscsi 
+          cmdlineswitches.noiscsi=1;
+          break; */
+
+        case 34711: // --accepttermsandcondition 
+          cmdlineswitches.accepttermsandcondition=1;
+          break;
+
+        case 19870: // --noinstallpackages 
+          cmdlineswitches.noinstallpackages=1;
+          break;
+
+        case 5970: // --noprompt 
+          cmdlineswitches.noprompt=1;
+          break;
+
+        case 15948: // --nocheckbinaries 
+          cmdlineswitches.nocheckbinaries=1;
+          break;
+
+        default:
+          printf("ERR: unknown commandline option passed %s\n",argv[loop]);
+          return -1; 
+      }
+    }
+  }
+
+  return 0;
+}
 void print_connecterr()
 {
-  printf("Connection to newfs server failed, check any passed options are correct or server status by running: nexfscli server status\n");
+  printf("Connection to nexfs server failed, check any passed options are correct or server status by running: nexfscli server status\n");
 }
 
-int generateconfigfiles(char *argv[])
+int generateconfigfiles()
 {
   int res=0;
   char basefoldername[260020];
 
   printf("Generating Configuration Files\n");
 
+  
   res=gfs_loadconfig(1);
  
   if ( res == 0 )
@@ -61,7 +165,7 @@ int generateconfigfiles(char *argv[])
     res = mkdir(basefoldername, 0700);
     if (( res != 0 ) && ( errno != EEXIST ))
     {
-      printf("%s: Failed to create config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+      printf("%s: Failed to create config directory %s, errno %d - %s\n",MYNAME,basefoldername,errno,strerror(errno));
       return -errno;
     }
 
@@ -70,7 +174,7 @@ int generateconfigfiles(char *argv[])
       res=chown(basefoldername, 0, 0);
       if ( res != 0 )
       {
-        printf("%s: Failed to chown config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+        printf("%s: Failed to chown config directory %s, errno %d - %s\n",MYNAME,basefoldername,errno,strerror(errno));
         return -errno;
       }
     }
@@ -81,7 +185,7 @@ int generateconfigfiles(char *argv[])
 
     if (( res != 0 ) && ( errno != EEXIST ))
     {
-      printf("%s: Failed to create config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+      printf("%s: Failed to create config directory %s, errno %d - %s\n",MYNAME,basefoldername,errno,strerror(errno));
       return -errno;
     }
 
@@ -90,7 +194,7 @@ int generateconfigfiles(char *argv[])
       res=chown(basefoldername, 0, 0);
       if ( res != 0 )  
       {
-        printf("%s: Failed to chown config directory %s, errno %d - %s\n",argv[0],basefoldername,errno,strerror(errno));
+        printf("%s: Failed to chown config directory %s, errno %d - %s\n",MYNAME,basefoldername,errno,strerror(errno));
         return -errno;
       }
     }
@@ -99,7 +203,7 @@ int generateconfigfiles(char *argv[])
   }
   else
   {
-    printf(".. Returned %d - FAILED, hints: does /etc/nexfs exist, have you run nexfscli -init?\n",res);
+    printf(".. Returned %d - FAILED, hint: does /etc/nexfs exist, have you run nexfscli init?\n",res);
     return -1;
   }
 
@@ -169,6 +273,298 @@ int getliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
   } 
 
   return res;
+}
+
+enum pkgmgr {
+  apt=1,
+  rpm
+};
+
+int whichpackagemanager()
+{
+  struct stat stbuf;
+
+  if (( stat("/usr/bin/apt-get",&stbuf) == 0 ) && ( stat("/usr/bin/dpkg-query",&stbuf) == 0 ))
+    return apt;
+
+  if (( stat("/usr/bin/yum",&stbuf) == 0 ) && ( stat("/usr/bin/rpm",&stbuf) == 0 ))
+    return rpm;
+  
+  return 0;
+}
+
+int installaptpackagedepnds()
+{
+  const char * aptpackages[] =  {"fuse3", "libcurl4", "libuuid1", "openssl"};
+  char cmd[1024] = { 0 };
+  const int packages = 4;
+  int package=0;
+  int res=0;
+
+  for ( package=0; package < packages; package++ )
+  {
+    snprintf(cmd,1024,"/usr/bin/dpkg-query  -Wf'${db:Status-abbrev}' %s",aptpackages[package]); 
+
+    res = system(cmd);
+
+    if ( res == -1  )
+    {
+      printf("ERR: failed to run cmd %s : errno %s ",cmd,strerror(errno));
+      return -1;
+    }
+    else if ( WEXITSTATUS(res) == 1 )
+    {
+      snprintf(cmd,1024,"/usr/bin/apt-get install -y %s",aptpackages[package]);
+      res = system(cmd);
+
+      if ( res != 0 )      
+      {
+        printf("ERR: failed to run cmd %s : errno %s ",cmd,strerror(errno));
+        return -1;
+      }
+    }
+  }
+  return 0;
+}
+
+int installrpmpackagedepends()
+{
+  const char * rpmpackages[] =  {"fuse3", "compat-openssl11", "libcurl", "libuuid","nfs-utils"};
+  char cmd[1024] = { 0 };
+  const int packages = 4;
+  int package=0;
+  int res=0;
+
+  for ( package=0; package < packages; package++ )
+  {
+    if (( strcmp(rpmpackages[package],"nfs-utils") == 0 ) && ( cmdlineswitches.nonfs == 1 ))
+      continue;
+
+    snprintf(cmd,1024,"/usr/bin/rpm -q %s",rpmpackages[package]); 
+
+    res = system(cmd);
+
+    if ( res == -1  )
+    {
+      printf("ERR: failed to run cmd %s : errno %s ",cmd,strerror(errno));
+      return -1;
+    }
+    else if ( WEXITSTATUS(res) == 1 )
+    {
+      snprintf(cmd,1024,"/usr/bin/yum -y install %s",rpmpackages[package]);
+      res = system(cmd);
+
+      if ( res != 0 )      
+      {
+        printf("ERR: cmd %s failed (or package could not be installed): errno %s ",cmd,strerror(errno));
+        return -1;
+      }
+    }
+  }
+  return 0;
+}
+
+int downloadinstallnexfsbinaries()
+{
+  const char * nexfsurl = "https://github.com/nexustorage/Nexfs-Public-Download/raw/main/nexfs.server";
+  const char * nexfscliurl = "https://github.com/nexustorage/Nexfs-Public-Download/raw/main/nexfscli";
+
+  const char *curlgetnexfs = "/usr/bin/curl -L -o /usr/sbin/nexfs.server";
+  const char *wgetnexfs = "/usr/bin/wget -O /usr/sbin/nexfs.server";
+  const char *curlgetnexfscli = "/usr/bin/curl -L -o /usr/sbin/nexfscli";
+  const char *wgetnexfscli = "/usr/bin/wget -O /usr/sbin/nexfscli";
+
+  char downloadcmd[2048] = { 0 };
+  int res=0;
+  struct stat stbuf;
+
+  if (( stat("/usr/sbin/nexfs.server",&stbuf) == 0 ) && (( cmdlineswitches.reinstall == 0 ) && ( cmdlineswitches.upgrade == 0)))
+  {
+      printf("ERR: /usr/sbin/nexfs.server already exists and upgrade or reinstall not specified\n");
+      return -1;
+  }
+
+  snprintf(downloadcmd,2048,"%s %s 2>&1 | grep -q 'HTTP/2 200'",curlgetnexfs,nexfsurl);
+  res=system(downloadcmd);
+
+  if ( res == -1 )
+  {
+    snprintf(downloadcmd,2048,"%s %s",wgetnexfs,nexfsurl);
+    res=system(downloadcmd);
+
+    if ( res == -1 )
+    {
+      printf("ERR: failed to download latest release of nexfs.server\n");
+      return -1;
+    }
+  }
+
+  if ( WEXITSTATUS(res)  != 1 )
+  {
+    printf("ERR: failed to download latest release of nexfs.server\n");
+    return -1;
+  }
+
+  if ( chown("/usr/sbin/nexfs.server",0,0) == -1 )
+  {
+    printf("ERR: failed to chown to owner and group root /usr/sbin/nexfs.server\n");
+    return -1;
+  }
+
+  if ( chmod("/usr/sbin/nexfs.server",0550) == -1 )
+  {
+    printf("ERR: failed to chmod to 550 /usr/sbin/nexfs.server\n");
+    return -1;
+  }
+
+  snprintf(downloadcmd,2048,"%s %s 2>&1 | grep -q 'HTTP/2 200'",curlgetnexfscli,nexfscliurl);
+  res=system(downloadcmd);
+
+  if ( res == -1 )
+  {
+    snprintf(downloadcmd,2048,"%s %s",wgetnexfscli,nexfscliurl);
+    res=system(downloadcmd);
+
+    if ( res == -1 )
+    {
+      printf("ERR: failed to download latest release of nexfscli\n");
+      return -1;
+    }
+  }
+
+  if ( WEXITSTATUS(res) != 1 )
+  {
+    printf("ERR: failed to download latest release of nexfscli\n");
+    return -1;
+  }
+
+  if ( chown("/usr/sbin/nexfscli",0,0) == -1 )
+  {
+    printf("ERR: failed to chown to owner and group root /usr/sbin/nexfscli\n");
+    return -1;
+  }
+
+  if ( chmod("/usr/sbin/nexfscli",0550) == -1 )
+  {
+    printf("ERR: failed to chmod to 550 /usr/sbin/nexfscli\n");
+    return -1;
+  } 
+  return 0;
+}
+
+int checkinstalledbinaries()
+{
+  int res=0;
+  struct stat stbuf;
+
+  if ( stat("/usr/sbin/nexfs.server",&stbuf) != 0 )
+  {
+    printf("ERR: Cannot stat /usr/sbin/nexfs.server, error %s\n",strerror(errno));
+    return -1;
+  }
+
+  res=system("/usr/sbin/nexfs.server --version");
+
+  if ( res == -1 )
+  {
+    printf("ERR: Cannot run /usr/sbin/nexfs.server, error %s\n",strerror(errno));
+    return -1;
+  }
+
+  if ( res != 0 )
+  {
+    printf("ERR: '/usr/sbin/nexfs.server --version' failed to return version number\n");
+    return -1;
+  }
+
+  if ( stat("/usr/sbin/nexfscli",&stbuf) != 0 )
+  {
+    printf("ERR: Cannot stat /usr/sbin/nexfscli, error %s\n",strerror(errno));
+    return -1;
+  }
+
+  res=system("/usr/sbin/nexfscli release get nexfscli");
+
+  if ( res == -1 )
+  {
+    printf("ERR: Cannot run /usr/sbin/nexfscli, error %s\n",strerror(errno));
+    return -1;
+  }
+
+  if ( res != 0 )
+  {
+    printf("ERR: '/usr/sbin/nexfscli release get nexfsci' failed to return version number\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+int installsystemdservice()
+{
+  int fd=-1;
+  int res=0;
+  struct stat stbuf;
+  const char * servicefile = "/etc/systemd/system/nexfs.service";
+
+  const char * nexfsservice =  
+    "[Unit]\n"
+    "Description=Nexustorage Nexfs Storage Server\n"
+    "Wants=network-online.target\n"
+    "After=network-online.target\n"
+    "DefaultDependencies=no\n"
+    "Conflicts=shutdown.target\n"
+    "Before=shutdown.target\n"
+    "\n"
+    "[Service]\n"
+    "Type=forking\n"
+    "PIDFile=/run/nexfs.pid\n"
+    "ExecStart=/usr/sbin/nexfscli server start\n"
+    "ExecStop=/usr/sbin/nexfscli server stop\n"
+    "\n"
+    "[Install]\n"
+    "Alias=nexfs.service\n" ;
+
+  if ( stat("/usr/bin/systemctl",&stbuf) != 0 )
+  {
+    if ( errno == ENOENT )
+      printf("Cannot install service on non (or non standard) systemd system\n");
+    else
+      printf("Cannot install serivce in systemd, errno %s\n", strerror(errno));
+
+    return -1;
+  }
+  
+  fd=open(servicefile,O_WRONLY | O_TRUNC | O_CREAT, 0644 );
+
+  if ( fd == -1 ) 
+  {
+    printf("Failed to open or create service file %s, errno %s\n", servicefile, strerror(errno));
+    return -1;
+  }
+
+  if ( pwrite(fd,nexfsservice,strlen(nexfsservice),0) == -1 )
+  {
+    printf("Failed to write to contents of service file %s, errno %s\n", servicefile, strerror(errno));
+    close(fd);
+    return -1;
+  }
+  close(fd);
+
+  if ( (res = system("/usr/bin/systemctl daemon-reload")) != 0 )
+  {
+    printf("Failed to write to reload systemctl, returned %d\n", res);
+    return -1;
+  }
+
+  if ( (res = system("/usr/bin/systemctl enable nexfs")) == -1 )
+  {
+    printf("Failed to enable nexfs in systemctl, returned %d\n", res);
+    return -1;
+  }
+
+  printf("\nNexfs Installation completed\n"); 
+  return 0;
 }
 
 int releaseinfo(int argc, char *argv[])
@@ -698,7 +1094,8 @@ int ismounted()
 {
   long fd;
   char buf[8192];
-  char searchstr[4096];
+  char searchstr[4097];
+  char searchdebugstr[4096];
   char mountpoint[2048];
   char *ptr;
   int res=1;
@@ -711,7 +1108,16 @@ int ismounted()
     return -errno;
   }
 
-  snprintf(searchstr,4096,"nexfs.server %s ",mountpoint);
+  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,sizeof(NEXFSCMD),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs NEXFSCMD from configuration data, errno %d - %s\n",errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(searchstr,4097,"%s %s ",NEXFSCMD,mountpoint);
+  snprintf(searchdebugstr,4096,"nexfs.server-debug %s ",mountpoint);
 
   fd = open("/proc/mounts",O_RDONLY);
 
@@ -734,6 +1140,13 @@ int ismounted()
     else if ( res != 0 )
     {
       ptr=strstr(buf,searchstr);
+
+      if ( ptr != NULL )
+      {
+        return 1;
+      }
+
+      ptr=strstr(buf,searchdebugstr);
 
       if ( ptr != NULL )
       {
@@ -927,7 +1340,7 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
   return 0;
 }
 
-int startserver()
+int startserver(int DEBUG)
 {
   int res=0;
   char mountpoint[2048];
@@ -944,7 +1357,13 @@ int startserver()
     return -errno;
   }
 
-  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,sizeof(NEXFSCMD),0);
+  if ( DEBUG == 1 )
+  {
+    strcpy(NEXFSCMD,"nexfs.server-debug");
+    res=0;
+  }
+  else
+    res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,sizeof(NEXFSCMD),0);
 
   if ( res == -1 )
   {
@@ -962,7 +1381,7 @@ int startserver()
 
   if ( ismounted() == 1 )
   {
-    printf("nexfs is registrered by the kernel as mounted for mountpoint %s\n",mountpoint);
+    printf("nexfs is registrered by the kernel as mounted for mountpoint %s, try 'umount -f %s' before starting nexfs \n",mountpoint,mountpoint);
     return -1;
   }
 
@@ -985,12 +1404,16 @@ int startserver()
 
   if ( res != 0 )
   {
-    printf("nexfs.server not found in search PATH, trying to start nexfs.server from the current directory\n");
+    printf("\nnexfs.server not started, check any error messages reported and that nexfs.server is in the search path, attempt returned %d\n",res);
+
+    if ( res == 33536 )
+      return -1;
+
     res=system(LOCALCMD);
 
-    if ( res != 0 )
+    if ( res != 0 ) 
     {
-      printf("Failed to start nexfs.server, check configurations NEXFSCMD and MOUNTPOINT are set correct, currently set to %s and %s, error if given %s\n",NEXFSCMD,mountpoint,strerror(errno));
+      printf("\nFailed to start nexfs.server, check configurations NEXFSCMD and MOUNTPOINT are set correct, currently set to %s and %s, error code given %d\n",NEXFSCMD,mountpoint,res);
       return -1;
     }
   }
@@ -1085,7 +1508,7 @@ int stopserver(int force)
 
   if ( res < 0 )
   {
-     printf("ERR: failed to confirm file tier info with errno %d - %s\n",errno,strerror(errno));
+     printf("ERR: failed to confirm shutdown with errno %d - %s\n",errno,strerror(errno));
      return -errno;
   }
 
@@ -1286,22 +1709,23 @@ int configfiles_setdefaults(int option)
   char newvalue[32] = { 0 };
   char confirm[4];
 
-  char *DEFAULTS[][3][32] = { 
-    { {"T3USEHTTPS"}, {"0"}, {"1" }},
-    { {"T3S3USEVIRTUALHOST"}, {"0"}, {"1"}},
-    { {"T3S3SIGNATUREV4"}, {"1"}, {"1"}},
-    { {"T3S3ENABLEREGION"}, {"0"}, {"1"}},
-    { {"T3S3COMPATIBLE"}, {"1"}, {"0"}},
-    { {"T3S3URL"}, {"localhost"}, {"amazonaws.com"}},
-    { {"T3S3PORT"}, {"9000"}, {"443"}},
-    { {"T3S3RETRYSLEEP"}, {"1"}, {"1"}},
-    { {"T3S3RETRIES"}, {"3"}, {"3"}},
-    { {"T3S3RETRY404"}, {"0"}, {"0"}}
+  char *DEFAULTS[][4][32] = { 
+    { {"T3USEHTTPS"}, {"0"}, {"1" }, {"1"}},
+    { {"T3S3USEVIRTUALHOST"}, {"0"}, {"1"}, {"1"}},
+    { {"T3S3SIGNATUREV4"}, {"1"}, {"1"}, {"1"}},
+    { {"T3S3ENABLEREGION"}, {"0"}, {"1"}, {"0"}},
+    { {"T3S3COMPATIBLE"}, {"1"}, {"0"}, {"0"}},
+    { {"T3S3URL"}, {"localhost"}, {"amazonaws.com"}, {"filebase.com"}},
+    { {"T3S3PORT"}, {"9000"}, {"443"},{"443"}},
+    { {"T3S3RETRYSLEEP"}, {"1"}, {"1"}, {"1"}},
+    { {"T3S3RETRIES"}, {"3"}, {"3"}, {"3"}},
+    { {"T3S3RETRY404"}, {"0"}, {"0"}, {"0"}}
   };
 
-  char MSG[2][372] = {
+  char MSG[3][400] = {
     "\nDefaults loaded, please run and set the following\nnexfscli configfile set T3S3URL {minio host}\nnexfscli configfile set T3S3PORT {minio port}\nnexfscli configfile set T3S3BUCKET {bucket}\nnexfscli configfile set T3AWSAccessKeyId {Access Key}\nnexfscli configfile set T3AWSSecretAccessKey {secret access key}\n",
-    "\nDefaults loaded, please run and set the following\nnexfscli configile set T3S3REGION {AWS Region}\nnexfscli configfile set T3S3BUCKET {S3 bucket}\nnexfscli configfile set T3AWSAccessKeyId {S3 Access Key}\nnexfscli configfile set T3AWSSecretAccessKey {S3 secret access key}\n"
+    "\nDefaults loaded, please run and set the following\nnexfscli configile set T3S3REGION {AWS Region}\nnexfscli configfile set T3S3BUCKET {S3 bucket}\nnexfscli configfile set T3AWSAccessKeyId {S3 Access Key}\nnexfscli configfile set T3AWSSecretAccessKey {S3 secret access key}\n",
+    "\nDefaults loaded, please run and set the following\nnexfscli configfile set T3S3BUCKET {S3 bucket}\nnexfscli configfile set T3AWSAccessKeyId {S3 Access Key}\nnexfscli configfile set T3AWSSecretAccessKey {S3 secret access key}\n"
   };
 
   printf("\nPlease confirm overwrite of config file parms with requested defaults (y/n): ");
@@ -1380,6 +1804,8 @@ int configfiles(int argc, char *argv[])
         return configfiles_setdefaults(0);
       else if ( strcmp(argv[4],"s3") == 0  )
         return configfiles_setdefaults(1);
+      else if ( strcmp(argv[4],"filebase") == 0  )
+        return configfiles_setdefaults(2);
 
       printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
       return -1;
@@ -1501,6 +1927,45 @@ int configfiles(int argc, char *argv[])
   }
   printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
   return -1;
+}
+
+int accepttermsandconditions()
+{
+  char * args[] = { "-", "-", "set", "TERMSANDCONDITIONSACCEPTED", "1" };
+  char accept[100] = { 0 };
+  char ACCEPT[100] = { 0 };
+  const int argc=5;
+  int loop=0;
+
+  if ( cmdlineswitches.accepttermsandcondition == 0 )
+  {
+    if ( cmdlineswitches.noprompt ==  1 )
+      return 0;
+
+    printf("Please review and accept the Nexustorage Terms and Conditions for using Nexfs\n");
+    printf("A latest T&Cs are available at https://www.nexustorage.com/nexustorage-terms-and-conditions\n\n");
+
+    while ( cmdlineswitches.accepttermsandcondition == 0 )
+    {
+      printf("\nDo you accept the Nexustorage Nexfs T&Cs (Yes/No)?");
+      if ( fgets(accept,100,stdin) != NULL )
+      {
+        for ( loop=0; loop < strlen(accept)-1; loop++ )
+        {
+          ACCEPT[loop]=toupper(accept[loop]);
+        }
+        ACCEPT[loop+1]=0;
+
+        if (strcmp(ACCEPT,"YES") == 0 )
+         cmdlineswitches.accepttermsandcondition=1;
+        else if ( strcmp(ACCEPT,"NO") == 0 )
+          return 0;
+      }
+    }
+  }
+
+  
+  return configfiles(argc,args);
 }
 
 int manageadmingroup(char *argv[])
@@ -1709,13 +2174,453 @@ int security(int argc, char *argv[])
   return -1;
 }
 
+int iscsi_show(int argc, char *argv[])
+{
+  int res=0;
+  int filein=-1;
+  int bytesread=0;
+  char parms[128] = { 0 };
+  char inbuf[65536*4] = { 0 };
+  char mountpoint[2048] = { 0 };
+  char NEXFSOPURL[2224] = { 0 };
+
+  if ( check_args(argc, 4, GREATER )) return -1;
+
+  if (( strcmp(argv[2],"show") == 0 ) && (( strcmp(argv[3],"targets") == 0 ) || ( strcmp(argv[3],"luns") == 0)))
+  {
+    strcpy(parms,"ISCSISHOWTARGETS");
+  }
+  else if (( strcmp(argv[2],"show") == 0 ) && ( strcmp(argv[3],"target") == 0 ))
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISHOWTARGET=%s",argv[4]);
+  }
+  else if ( strcmp(argv[3],"accounts") == 0 ) 
+  {
+    strcpy(parms,"ISCSISHOWACCOUNTS");
+  }
+  else if ( strcmp(argv[3],"interfaces") == 0 ) 
+  {
+    strcpy(parms,"ISCSISHOWINTERFACES");
+  }
+  else if (( strcmp(argv[2],"show") == 0 ) && ( strcmp(argv[3],"sessions") == 0 )) 
+  {
+    strcpy(parms,"ISCSISHOWSESSIONS");
+  }
+  else if ( strcmp(argv[3],"targetsessions") == 0 )  
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISHOWTARGETSESSIONS=%s",argv[4]);
+  }
+  else if ( strcmp(argv[3],"connections") == 0 ) 
+  {
+    strcpy(parms,"ISCSISTATCONNECTIONS");
+  }
+  else if ( strcmp(argv[3],"connection") == 0 )  
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISTATCONNECTION=%s",argv[4]);
+  }
+  else if (( strcmp(argv[2],"stat") == 0 ) && ( strcmp(argv[3],"sessions") == 0 ))
+  {
+    strcpy(parms,"ISCSISTATSESSIONS");
+  }
+  else if ( strcmp(argv[3],"session") == 0 )  
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISTATSESSION=%s",argv[4]);
+  }
+  else if (( strcmp(argv[2],"stat") == 0 ) && ( strcmp(argv[3],"targets") == 0 ))
+  {
+    strcpy(parms,"ISCSISTATTARGETS");
+  }
+  else if (( strcmp(argv[2],"stat") == 0 ) && ( strcmp(argv[3],"target") == 0 ))
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISTATTARGET=%s",argv[4]);
+  }
+  else if ( strcmp(argv[3],"luns") == 0 )  
+  {
+    strcpy(parms,"ISCSISTATLUNS");
+  }
+  else if (( strcmp(argv[2],"stat") == 0 ) && ( strcmp(argv[3],"targetluns") == 0 ))
+  {
+    if ( check_args(argc, 5, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISTATTARGETLUNS=%s",argv[4]);
+  }
+  else if (( strcmp(argv[2],"stat") == 0 ) && ( strcmp(argv[3],"lun") == 0 ))
+  {
+    if ( check_args(argc, 6, EQUAL )) return -1;
+    snprintf(parms,sizeof(parms),"ISCSISTATLUN=%s,%s",argv[4],argv[5]);
+  }
+  else
+    return -1;
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",res,strerror(errno));
+    return -errno;
+  }
+
+  if ( ismounted() == 0 )
+  {
+    printf("nexfs not running for mountpoint %s\n",mountpoint);
+    return -1;
+  }
+
+  snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/%s",mountpoint,parms);
+
+  filein=open(NEXFSOPURL,O_RDONLY | O_DIRECT);
+  if ( filein == -1 )
+  {
+    printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+    return -1;
+  }
+
+  while ( (res = pread(filein,inbuf+bytesread,65536,bytesread)) > 0 ) 
+    {
+      bytesread+=res;
+      if ( bytesread == sizeof(inbuf) )
+        break;
+    }
+
+
+  if (( bytesread == -1) || ( res == -1 )) 
+  {
+    printf("%s: failed to read data, error %s",argv[0],strerror(errno));
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  printf("%s\n",inbuf);
+
+  return 0;
+}
+
+int iscsi (int argc, char *argv[])
+{
+  int filein=-1;
+  int fileout=-1;
+  const int GET=1;
+  const int PUT=2;
+  char inbuf[65536*4] = { 0 };
+  char mountpoint[2048] = { 0 };
+  char NEXFSOPURL[2100] = { 0 };
+  int opp=-1;
+  int bytesread=0;
+  int byteswritten=0;
+  int res=0;
+
+  if ( check_args(argc, 2, GREATER )) return -1;
+
+  if (( strcmp(argv[2],"show") == 0 ) || (strcmp(argv[2],"stat") == 0 )) 
+    return iscsi_show(argc, argv);
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",res,strerror(errno));
+    return -errno;
+  }
+
+  if ( ismounted() == 0 )
+  {
+    printf("nexfs not running for mountpoint %s\n",mountpoint);
+    return -1;
+  }
+
+  if ( strcmp(argv[2],"getconf") == 0 )
+  {
+    opp=GET;
+    if ( argc == 4 )
+    {
+      fileout = open(argv[3],O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU );
+      if ( fileout == -1 )
+      {
+        printf("%s: failed to open %s for writting, error %s",argv[0],argv[3],strerror(errno));
+        return -1;
+      }
+    }
+     
+    snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/ISCSIGETCONF",mountpoint);
+
+    filein=open(NEXFSOPURL,O_RDONLY | O_DIRECT);
+    if ( filein == -1 )
+    {
+      printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+      return -1;
+    }
+
+  }
+  else if ( strcmp(argv[2],"putconf") == 0 )
+  {
+    opp=PUT;
+    if ( argc == 4 )
+    {
+      filein = open(argv[3],O_RDONLY );
+      if ( filein == -1 )
+      {
+        printf("%s: failed to open %s for reading, error %s",argv[0],argv[3],strerror(errno));
+        return -1;
+      }
+    }
+  }
+  else
+  {
+    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
+    return -1;
+  }
+
+  res=0;
+  if ( filein == -1 )
+     bytesread=fread(inbuf,sizeof( char ),sizeof(inbuf),stdin); 
+  else
+    while ( (res = pread(filein,inbuf+bytesread,65536,bytesread)) > 0 ) 
+    {
+      bytesread+=res;
+      if ( bytesread == sizeof(inbuf) )
+        break;
+    }
+
+  if (( bytesread == -1) || ( res == -1 )) 
+  {
+    printf("%s: failed to read data, error %s",argv[0],strerror(errno));
+    if ( opp == GET) close(fileout); // this is the last thing we print so does not matter if we close stdout
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  bytesread=strlen(inbuf);
+
+  if ( opp == GET )
+  {
+    if ( fileout == -1 )
+     printf("%s\n",inbuf);
+    else
+    {
+      byteswritten=0;
+      do
+      {
+        res+=pwrite(fileout,inbuf,bytesread-byteswritten > 65536 ? 65536 : bytesread-byteswritten,byteswritten); 
+        if ( res == -1 )
+        {
+          printf("%s: failed to write data, error %s",argv[0],strerror(errno));
+          return -1;
+        }
+        byteswritten+=res; 
+      } while ( byteswritten < bytesread);
+    }
+    if ( fileout != -1 ) close(fileout); // this is the last thing we print so does not matter if we close stdout
+    if ( filein != -1 ) close(filein);
+    return 0;
+  }
+
+  snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/ISCSIPUTCONF",mountpoint);
+
+  fileout=open(NEXFSOPURL,O_WRONLY | O_DIRECT);
+  if ( fileout == -1 )
+  {
+    printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  byteswritten=0;
+  do
+  {
+    res+=pwrite(fileout,inbuf, 65536,byteswritten); 
+    if ( res == -1 )
+    {
+      printf("%s: failed to write data, error %s",argv[0],strerror(errno));
+      if ( filein != -1 ) close(filein);
+      close(fileout);
+      return -1;
+    }
+    byteswritten+=res; 
+  } while ( byteswritten < bytesread);
+
+  if ( filein != -1 ) close(filein);
+  if ( fileout != -1 ) close(fileout);
+
+  return 0; 
+}
+
+int nfs (int argc, char *argv[])
+{
+  int filein=-1;
+  FILE *fileout=NULL;
+  const int GET=1;
+  const int PUT=2;
+  char inbuf[262000] = { 0 };
+  char mountpoint[2048] = { 0 };
+  char NEXFSOPURL[2100] = { 0 };
+  int opp=-1;
+  int bytesread=0;
+  int byteswritten=0;
+  int res=0;
+  int needforcewrite=0;
+
+  if ( check_args(argc, 2, GREATER )) return -1;
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",res,strerror(errno));
+    return -errno;
+  }
+
+  if ( ismounted() == 0 )
+  {
+    printf("nexfs not running for mountpoint %s\n",mountpoint);
+    return -1;
+  }
+
+  if ( strcmp(argv[2],"getexports") == 0 )
+  {
+    opp=GET;
+    if ( argc == 4 )
+    {
+      fileout = fopen(argv[3],"w");
+      if ( fileout == NULL )
+      {
+        printf("%s: failed to open %s for writting, error %s",argv[0],argv[3],strerror(errno));
+        return -1;
+      }
+    }
+    else
+      fileout=stdout;
+     
+    snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/GETNFSEXPORTS",mountpoint);
+
+    unlink(NEXFSOPURL); // A simple hack to get around the need to otherwise do direct io, expected to fail, will remove any exports cached by the kernel  
+
+    filein=open(NEXFSOPURL,O_RDONLY | O_DIRECT);
+    if ( filein == -1 )
+    {
+      printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+      return -1;
+    }
+  }
+  else if ( strcmp(argv[2],"putexports") == 0 )
+  {
+    opp=PUT;
+    if ( argc == 4 )
+    {
+      filein = open(argv[3],O_RDONLY );
+      if ( filein == -1 )
+      {
+        printf("%s: failed to open %s for reading, error %s",argv[0],argv[3],strerror(errno));
+        return -1;
+      }
+    }
+  }
+  else
+  {
+    printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
+    return -1;
+  }
+
+  res=0;
+  if ( filein == -1 )
+     bytesread=fread(inbuf,sizeof( char ),sizeof(inbuf),stdin); 
+  else
+    while ( (res = pread(filein,inbuf+bytesread,65536,bytesread)) > 0 ) 
+    {
+      bytesread+=res;
+      if ( bytesread == sizeof(inbuf) )
+        break;
+    }
+
+  if (( bytesread == -1) || ( res == -1 )) 
+  {
+    printf("%s: failed to read data, error %s",argv[0],strerror(errno));
+    if ( opp == GET) fclose(fileout); // this is the last thing we print so does not matter if we close stdout
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  if ( opp == GET )
+  {
+    fprintf(fileout,"%s\n",inbuf);
+    fclose(fileout); // this is the last thing we print so does not matter if we close stdout
+    if ( filein != -1 ) close(filein);
+    return 0;
+  }
+
+  // we will do some very basic checks of expected new exportfs json contents
+
+  if ( bytesread == 0 ) 
+    needforcewrite=1;
+  else if ( strstr(inbuf,"\"nfsexports\":") == NULL )
+    needforcewrite=1;
+  else if ( strstr(inbuf,"\"exportdir\":") == NULL )
+  {
+    printf("%s: new exports invalid, not updated",argv[0]);
+  }
+
+  if (( needforcewrite == 1 ) && ( argc < 5 ))
+  {
+    printf("%s: force option required delete all configured exports",argv[0]);
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+  else if (( needforcewrite == 1 ) && (( strcmp(argv[4],"-f") != 0 ) || ( strcmp(argv[4],"-force") != 0 )))
+  {
+    printf("%s: force option required to delete all configured exports",argv[0]);
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/PUTNFSEXPORTS",mountpoint);
+
+  fileout=fopen(NEXFSOPURL,"w");
+  if ( fileout == NULL )
+  {
+    printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+    if ( filein != -1 ) close(filein);
+    return -1;
+  }
+
+  byteswritten = fwrite(inbuf,sizeof(char),bytesread,fileout);
+
+  if ( byteswritten == -1 )
+  {
+    printf("%s: failed to write new exports data, error %s",argv[0],strerror(errno));
+    if ( filein != -1 ) close(filein);
+    fclose(fileout);
+    return -1;
+  }
+
+  if ( filein != -1 ) close(filein);
+  fclose(fileout);
+
+  // The following two unlinks are expected to fail, in doing so they will invalidate the kernel cache of these virtual files
+  // nexfs tries had to get the kernal to invalidate these, but making the kernel fail a opp on the virtual files can help thgere removal from cache
+
+  snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638869/GETNFSEXPORTS",mountpoint);
+  unlink(NEXFSOPURL);
+  snprintf(NEXFSOPURL,sizeof(NEXFSOPURL),"%s/2b339ae7a7f04e45960f8a3fcc638801",mountpoint);
+  unlink(NEXFSOPURL);
+
+
+  return 0; 
+}
+
 int server(int argc, char *argv[])
 {
   if ( check_args(argc, 3, EQUAL )) return -1;
 
   if ( strcmp(argv[2],"start") == 0 )
   {
-    return ( startserver() );
+    return ( startserver(0) );
+  }
+  else if ( strcmp(argv[2],"startdebug") == 0 )
+  {
+    return ( startserver(1) );
   }
   else if ( strcmp(argv[2],"status") == 0 )
   {
@@ -1743,16 +2648,17 @@ int server(int argc, char *argv[])
   return -1;
 } 
 
-int init(int argc, char *argv[])
+int init()
 {
   int res=0;
   struct stat stbuf = {0};
+  errno=0;
 
   res = stat(DEFAULTGFSCONFDIR,&stbuf);
 
   if (( res != 0 ) && (errno != ENOENT ))
   {
-    printf("%s: Failed to stat configuration directory %s, errno %d - %s\n",argv[0],DEFAULTGFSCONFDIR,errno,strerror(errno));
+    printf("%s: Failed to stat configuration directory %s, errno %d - %s\n",MYNAME,DEFAULTGFSCONFDIR,errno,strerror(errno));
     return -errno; 
   }
 
@@ -1762,14 +2668,360 @@ int init(int argc, char *argv[])
 
     if ( res != 0 )
     {
-      printf("%s: Failed to create configuration directory %s, errno %d - %s\n",argv[0],DEFAULTGFSCONFDIR,errno,strerror(errno));
+      printf("%s: Failed to create configuration directory %s, errno %d - %s\n",MYNAME,DEFAULTGFSCONFDIR,errno,strerror(errno));
       return -errno;
     }
   }
 
-  res=generateconfigfiles(argv);
+  res=generateconfigfiles();
 
   return res;
+}
+
+int copyxattrs(char *src, char *dst)
+{
+  int res=0;
+  size_t xattrslen, keylen, vallen; 
+  size_t valmemlen=0;
+  char *buf, *key, *val;
+  errno=0;
+
+  xattrslen=listxattr(src,NULL,0);
+
+  if ( xattrslen == -1 )
+  {
+    printf("%s copyxattrs failed to list xattrs for %s, error = %s",MYNAME,src,strerror(errno));
+    return -errno;
+  }
+
+  if ( xattrslen == 0 )
+    return 0;
+
+  val=0;
+  buf=malloc(xattrslen);
+
+  if ( buf == NULL )
+  {
+    printf("%s copyxattrs failed to allocated %ld bytes of memory, error = %s",MYNAME,xattrslen,strerror(errno));
+    return -errno;
+  }
+
+  xattrslen=listxattr(src,buf,xattrslen);
+
+  if ( xattrslen == -1 )
+  {
+    printf("%s copyxattrs failed to get list of xattrs for %s, error = %s",MYNAME,src,strerror(errno));
+    free(buf);
+    return -errno;
+  }
+
+  key = buf;
+  val=NULL;
+
+  while ( xattrslen> 0 )
+  {
+    vallen=getxattr(src,key,NULL,0);
+    if ( vallen < 0 )
+    {
+      printf("%s copyxattrs failed to get value length for xattr %s from %s, error = %s",MYNAME,key,src,strerror(errno));
+      free(buf);
+      if ( val != NULL ) free(val);
+      return -errno;
+    }
+
+    if ( vallen > valmemlen )
+    {
+      val=realloc(val,vallen+1);
+
+      if ( val == NULL )
+      {
+        printf("%s copyxattrs failed to allocated %ld bytes of memory for xattr val, error = %s",MYNAME,xattrslen,strerror(errno));
+        free(buf);
+        return -errno;
+      }
+      valmemlen=vallen;
+    }
+    memset(val,0,vallen+1);
+
+    vallen=getxattr(src,key,val,vallen);
+
+    if ( vallen < 0 )
+    {
+      printf("%s copyxattrs failed to get value for xattr %s from %s, error = %s",MYNAME,key,src,strerror(errno));
+      if ( val != NULL ) free(val);
+      free(buf);
+      return -errno;
+    }
+
+    if ( vallen == 0 )
+      res=setxattr(dst,key,"",0,0);
+    else
+    {
+      res=setxattr(dst,key,val,vallen,0);
+    }
+    
+    if ( res < 0 ) 
+    {
+      printf("%s copyxattrs failed to set xattr '%s' value '%s' length %ld on file %s, error = %s",MYNAME,key,val,vallen,dst,strerror(errno));
+      if ( val != NULL ) free(val);
+      free(buf);
+      return -errno;
+    }
+
+    keylen = strlen(key) + 1;
+    xattrslen -= keylen;
+    key += keylen;
+  }
+  if ( val != NULL ) free(val);
+  free(buf);
+  return 0;
+}  
+
+
+int replicatedirent(char *src, char *dst)
+{
+  int res=0;
+  struct stat srcstat;
+  struct timespec *srctimespec[2];
+
+  if ( stat(src, &srcstat) != 0 )
+  { 
+    res=errno;
+    printf("%s replicatedirent, failed to stat %s error %s",MYNAME,src,strerror(errno));
+    errno=res;
+    return -errno;
+  }
+  
+
+  if ( (srcstat.st_mode  & S_IFMT ) != S_IFDIR)
+  {
+    if ( copyxattrs(src, dst) != 0 ) 
+    { 
+      res=errno;
+      printf("%s replicatedirent, copyxattrs failed from %s to %s, error %s",MYNAME,src,dst,strerror(errno));
+      errno=res;
+      return -errno;
+    }
+
+    if ( truncate(dst, srcstat.st_size) != 0 )
+    { 
+      res=errno;
+      printf("%s: replicatesdirent, failed to truncate %s to size %ld, error %s",MYNAME,dst,srcstat.st_size,strerror(errno));
+      errno=res;
+      return -errno;
+    }
+  }
+
+  if ( chown(dst, srcstat.st_uid, srcstat.st_gid) != 0 )
+  { 
+    res=errno;
+    printf("%s: replicatesdirent, failed to chown %s, error %s",MYNAME,dst,strerror(errno));
+    errno=res;
+    return -errno;
+  }
+
+  if ( chmod(dst, srcstat.st_mode) != 0 )
+  { 
+    res=errno;
+    printf("%s: replicatesdirent, failed to chmod %s, error %s",MYNAME,dst,strerror(errno));
+    errno=res;
+    return -errno;
+  } 
+
+
+  srctimespec[0]=&srcstat.st_atim;
+  srctimespec[1]=&srcstat.st_mtim;
+
+  if ( utimensat(-1,dst,*srctimespec,AT_SYMLINK_NOFOLLOW) != 0 )
+  { 
+    res=errno;
+    printf("%s:replicatedirent, failed to futimens %s, error %s",MYNAME,dst,strerror(errno));
+    errno=res;
+    return -errno;
+  } 
+
+  return 0;
+}
+
+
+int syncstructure(char *T1SDIR, char *T2SDIR, char *sdir, int quite)
+{
+  DIR *t1sdir;
+  struct dirent *dirp;
+  int res=0;
+  int dfp=0;
+  int sfp=0;
+  int bytesread=0;
+  int createentry=0;
+  char sourcefolder[8196]= { 0 };
+  char sourcename[8196]= { 0 };
+  char destinationname[8196]= { 0 };
+  char nsdir[8196] = { 0 };
+  char buf[8192];
+  struct stat stbuf = {0};
+  struct stat dstbuf = {0};
+
+  snprintf(sourcefolder,8196,"%s/%s",T1SDIR, sdir);
+
+  t1sdir = opendir(sourcefolder);
+   
+  if (t1sdir == NULL )
+  {
+    printf("%s: Failed to open source directory %s, error %d - %s",MYNAME,sourcefolder,errno,strerror(errno));
+    return -errno;
+  }
+
+  while ((dirp = readdir(t1sdir)) != NULL)
+  {
+    createentry=0;
+    errno=0;
+
+    if ((strcmp(dirp->d_name, ".") != 0 ) && (strcmp(dirp->d_name, "..") != 0) && ( strcmp(dirp->d_name,".statustestfile-9cbe477e-b2a8-11eb-b189-dff8ac5067a1") != 0))
+    {
+      snprintf(sourcename,sizeof(sourcename),"%s/%s/%s",T1SDIR,sdir,dirp->d_name);
+      snprintf(destinationname,sizeof(destinationname),"%s/%s/%s",T2SDIR,sdir,dirp->d_name);
+
+      if ( (res = lstat(sourcename,&stbuf)) != 0 )
+      {
+        if ( errno != ENOENT)  printf("%s: Could not stat source %s, error returned %s",MYNAME,sourcename,strerror(errno)); 
+        return -errno;
+      }
+
+      if ( (res = lstat(destinationname,&dstbuf)) != 0 )
+      {
+        if ( errno != ENOENT )
+        {
+          if ( errno != ENOENT)  printf("%s: Could not stat destination %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
+          return -errno;
+        }
+        createentry=1;
+      }
+
+      if ( errno == 0 )
+      {
+        if ( (stbuf.st_mode  & S_IFMT ) != ( dstbuf.st_mode & S_IFMT ))
+        {
+          if ( unlink(destinationname) != 0 )
+          {
+            if ( errno != ENOENT)  printf("%s: Could not remove existing invalid destination entry %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
+            return -errno;
+          }
+          else
+            createentry=1;
+        }
+      }
+
+      if ( createentry )
+      {
+        if ( (stbuf.st_mode  & S_IFMT ) == S_IFDIR)
+        {
+          if ( mkdir(destinationname,stbuf.st_mode) != 0 )
+          {
+            if ( errno != ENOENT)  
+            {
+              printf("%s: Could not create destination directory %s, error returned %s",MYNAME,destinationname,strerror(errno));
+              return -errno;
+            }
+          }
+        }
+        else
+        {
+          dfp=-1;
+          if ( (dfp = open(destinationname,O_WRONLY | O_CREAT, stbuf.st_mode)) == -1 )
+          {
+            printf("%s: Could not open destination entry %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
+            return -errno;
+          }
+
+          sfp=-1;
+          if ( (sfp = open(sourcename,O_RDONLY )) == -1 )
+          {
+            printf("%s: Could not open source directory entry %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
+            return -errno;
+          }
+
+          if ( stbuf.st_size > 0 )
+          {
+            bytesread=0;
+            while ( (bytesread=read(sfp,buf,sizeof(buf))) > 0 )
+            {
+              if (buf[0] == 0 )
+                break;
+
+              if ( write(dfp,buf,bytesread) != bytesread )
+              {
+                printf("%s: Could not write %d bytes to destination file %s, error if returned %s",MYNAME,bytesread,destinationname,strerror(errno)); 
+                return -1;
+              }
+            }
+          }
+       
+          if ( sfp != -1 ) close(sfp);
+          if ( dfp != -1 ) close(dfp);
+        }
+      }
+
+      if ( (stbuf.st_mode  & S_IFMT ) == S_IFDIR)
+      {
+        snprintf(nsdir,sizeof(nsdir),"%s/%s",sdir,dirp->d_name);
+        if ( syncstructure(T1SDIR, T2SDIR, nsdir, quite) != 0 )
+          return -errno;
+      }
+
+      if ( replicatedirent(sourcename, destinationname) != 0 ) 
+        return -errno;
+    }
+  }
+  return 0;
+}
+
+int syncstructurefilesystems(int argc, char *argv[])
+{
+  int res=0;
+  int REPLICATIONMODE=0;
+  char T1SDIR[8192]= {0};
+  char T2SDIR[8192]= {0};
+  char buffer[10] = { 0 };
+
+  res=gfs_getconfig(GFSVALUE,"T1SDIR",T1SDIR,sizeof(T1SDIR),0);
+
+  if ( res == -1 )
+  {
+    printf("%s: Failed to retrieve nexfs T1SDIR from configuration data, errno %d - %s\n",MYNAME,errno,strerror(errno));
+    return -errno;
+  }
+
+  res=gfs_getconfig(GFSVALUE,"T2SREPLICATIONMODE",buffer,sizeof(buffer),0);
+  if ( res == -1 )
+  {
+    printf("%s: Failed to retrieve nexfs T2SREPLICATIONMODE from configuration data, errno %d - %s\n",MYNAME,errno,strerror(errno));
+    return -errno;
+  }
+
+  REPLICATIONMODE=atoi(buffer);
+
+  if ( REPLICATIONMODE > 0 )
+  {
+    res=gfs_getconfig(GFSVALUE,"T2SDIR",T2SDIR,sizeof(T2SDIR),0);
+    if ( res == -1 )
+    {
+      printf("%s: Failed to retrieve nexfs T2SDIR from configuration data, errno %d - %s\n",MYNAME,errno,strerror(errno));
+      return -errno;
+    }
+
+    printf("%s: Starting structure replication, this may take a long time and will need to be restarted if interrupted\n",argv[0]);
+
+    if ( syncstructure(T1SDIR, T2SDIR, "", 0) != 0 )
+      return -errno;
+  }
+  else
+  {
+    printf("%s: Structure data replication not configured\n",argv[0]);
+  }
+
+  printf("%s: Structure data replication completed successfully\n",argv[0]);
+
+  return 0;
 }
 
 int setupdatastores(int argc, char *argv[])
@@ -1984,6 +3236,84 @@ int printconfigtag(char *tagname)
   return configfiles(5, argv);
 }
 
+int installnexfs()
+{
+  int thepkgmgr=0;
+  int res=0;
+
+  if ( cmdlineswitches.noinstallpackages == 0 )
+  {
+    thepkgmgr=whichpackagemanager();
+
+    if ( thepkgmgr == apt )
+      res=installaptpackagedepnds();
+    else if ( thepkgmgr == rpm ) 
+      res=installrpmpackagedepends();
+    else
+      res=0;
+
+    if ( res != 0 )
+    {
+      printf("ERR: failed to validate or install package dependences\n");
+      return -1;
+    }
+  }
+  
+  if ( cmdlineswitches.nosoftwareinstall == 0 )
+  {
+    if ( downloadinstallnexfsbinaries() == -1 )
+    {
+      printf("ERR: failed to download nexfs solftware\n");
+      return -1;
+    }
+  }
+
+  if ( cmdlineswitches.nocheckbinaries == 0 )
+  {
+    if ( checkinstalledbinaries() == -1 )
+    {
+      printf("ERR: failed to download nexfs solftware\n");
+      return -1;
+    }
+  }
+
+  if ( cmdlineswitches.noserviceinstall ==  0 )
+  {
+    if ( installsystemdservice() == -1 )
+    {
+      printf("ERR: failed to install systemd nexfs.server start/stop script\n");
+      return -1;
+    }
+
+  }
+  if ( cmdlineswitches.noinit == 0 )
+  {
+    if ( init() == -1 )
+    {
+      printf("ERR: failed to init nexfs\n");
+      return -1;
+    }
+  }
+  else if ( cmdlineswitches.nogenerateconfigfiles == 0 )
+  {
+    if ( generateconfigfiles() == -1 )
+    {
+      printf("ERR: failed to init nexfs\n");
+      return -1;
+    }
+  }
+
+  accepttermsandconditions();
+
+  return 0;
+}
+
+int upgradenexfs()
+{
+  printf("Auto Upgrade not yet implemented\n");
+  return 0;
+}
+
 int help(int argc, char *argv[])
 {
   if ( argc > 2 )
@@ -2038,6 +3368,24 @@ int help(int argc, char *argv[])
   printf("security admin set config group [groupname or id]\n");
   printf("security admin get cmd access\n");
   printf("security admin get config access\n");
+  printf("nfs getexports [optional output filename]\n");
+  printf("nfs putexports [optional import filename]\n");
+  printf("iscsi getconf [optional output filename]\n");
+  printf("iscsi putconf [optional import filename]\n");
+  printf("iscsi show targets\n");
+  printf("iscsi show target [targetid]\n");
+  printf("iscsi show interfaces\n");
+  printf("iscsi show sessions\n");
+  printf("iscsi show targetsessions [targetid]\n");
+  printf("iscsi stat targets\n");
+  printf("iscsi stat target [targetid]\n");
+  printf("iscsi stat sessions\n");
+  printf("iscsi stat session [sessionid]\n");
+  printf("iscsi stat connections\n");
+  printf("iscsi stat connection [connectid]\n");
+  printf("iscsi stat luns\n");
+  printf("iscsi stat lun [targetid] [lunid]\n");
+  printf("iscsi stat targetluns [targetid]\n");
   printf("help loglevels\n");
   printf("help syslogfacility\n");
   printf("help configtags\n");
@@ -2056,14 +3404,20 @@ int help(int argc, char *argv[])
   printf("server forcestop\n");
   printf("server license\n");
   printf("server stats\n");
+  printf("--allhelp\n");
   return 0;
 }
 
 int allhelp(int argc, char *argv[])
 {
-  printf("-init\n");
+  printf("syncstructuredata\n");
+  printf("init\n");
+  printf("upgrade\n");
   printf("setupdatastores\n");
   printf("generateconfigfiles\n");
+  printf("installsystemdservice\n");
+  printf("accepttermsandconditions\n");
+  printf("install --reinstall --configoverwrite --nosoftwareinstall --noserviceinstall --noinit --nogenerateconfigfiles --nonfs --accepttermsandcondition --noinstallpackages --noprompt\n");
   printf("file info -set [filename (including nexfs path)] attrib newvalue\n");
 
   help(argc,argv);
@@ -2079,12 +3433,17 @@ int main(int argc, char *argv[])
 
   if ( check_args(argc, 2, GREATER )) return -1;
 
-  if ( strcmp(argv[1],"-allhelp") == 0 )
+  if ( strcmp(argv[1],"--allhelp") == 0 )
   {
     allhelp(argc, argv);
     return 0;
   } 
-  else if ( strcmp(argv[1],"help") == 0 )
+
+  if (  process_argvswitches(argc,argv) == -1 )
+    return -1;
+
+
+  if ( strcmp(argv[1],"help") == 0 )
   {
     help(argc, argv);
     return 0;
@@ -2092,6 +3451,11 @@ int main(int argc, char *argv[])
   else if ( strcmp(argv[1],"generateconfigfiles") == 0 )
   {
     res=generateconfigfiles(argv);
+    return res;
+  }
+  else if ( strcmp(argv[1],"installsystemdservice") == 0 )
+  {
+    res=installsystemdservice();
     return res;
   }
   else if ( strcmp(argv[1],"configfile") == 0 )
@@ -2114,9 +3478,9 @@ int main(int argc, char *argv[])
     res=file(argc, argv);
     return res;
   }
-  else if ( strcmp(argv[1],"-init") == 0 )
+  else if (( strcmp(argv[1],"init") == 0 ) || ( strcmp(argv[1],"-init") == 0 )) 
   {
-    res=init(argc,argv);
+    res=init();
     return res;
   }
   else if ( strcmp(argv[1],"setupdatastores") == 0 )
@@ -2137,6 +3501,36 @@ int main(int argc, char *argv[])
   else if ( strcmp(argv[1],"security") == 0 )
   {
     res=security(argc, argv);
+    return res;
+  }
+  else if ( strcmp(argv[1],"nfs") == 0 )
+  {
+    res=nfs(argc, argv);
+    return res;
+  }
+  else if ( strcmp(argv[1],"iscsi") == 0 )
+  {
+    res=iscsi(argc, argv);
+    return res;
+  }
+  else if ( strcmp(argv[1],"accepttermsandconditions") == 0 )
+  {
+    res=accepttermsandconditions();
+    return res;
+  }
+  else if ( strcmp(argv[1],"install") == 0 )
+  {
+    res=installnexfs();
+    return res;
+  }
+  else if ( strcmp(argv[1],"upgrade") == 0 )
+  {
+    res=upgradenexfs();
+    return res;
+  }
+  else if ( strcmp(argv[1],"syncstructuredata") == 0 )
+  {
+    res=syncstructurefilesystems(argc, argv);
     return res;
   }
   else
