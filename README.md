@@ -242,4 +242,5 @@ To set permanent configuration settings, which may be different from the live se
 Note: permanent configuration file changes do not become live unless the nexfs server is restarted or the live value is updated, as detailed above.
 
 
-Also, see advanced nexfscli usage and managing nexfs using the nexfs direct management interface.
+Also, see nexfscli usage and managing nexfs <https://www.nexustorage.com/nexfs-public-documentation-index>
+
