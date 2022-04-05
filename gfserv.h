@@ -5,24 +5,27 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#define RELEASE "0.9debug"
-#define SOFTWAREEXPIRES 1734392362 // Monday, December 16, 2024 11:39:22 PM 
+#define NEXFSSOFTWARERELEASE "0.95"  // remember DEBUGBUILD
+// #define DEBUGBUILD 1 - Moved to makefile
+#define SOFTWAREEXPIRES 1805434697 // Friday, March 19, 2027 5:38:17 AM 
 #define NEXFS_STRUCTVERSION "1.02"
+#define NEXFS_NFSCONFVERSION "1"
+#define NEXFS_ISCSICONFVERSION "2"
 
 #define FUSE_USE_VERSION 61
 #define USESYSLOG 1
-#define DEBUGBUILD 1
 
 // #define AWSAccessKeyId "minioadmin"
 // #define MAXHANDLEPAGES 2
 // #define CACHELOCKWAIT 10
 
-#define RELEASETYPEDEV 0
-#define RELEASETYPEBETA 1
-#define RELEASETYPEPREVIEW 2
-#define RELEASETYPEGA 3
+// moved to Makefile
+// #define RELEASETYPEDEV 0
+// #define RELEASETYPEBETA 1
+// #define RELEASETYPEPREVIEW 2
+// #define RELEASETYPEGA 3
 
-#define NEXFSRELEASETYPE RELEASETYPEDEV 
+// #define NEXFSRELEASETYPE RELEASETYPEDEV 
 
 
 #ifndef ENOATTR
@@ -45,6 +48,7 @@
 #define STATUSHIGHWATERMARK 9
 #define STATUSFLOORWATERMARK 10 
 #define STATUSINSHUTDOWN 11 
+#define STATUSSHUTDOWN 11 
 
 #define BUFFERSTATENONE 0
 #define BUFFERSTATEFD 1
@@ -54,7 +58,7 @@
 #define BUFFERSTATECHANGEFDTOFDMEM 5
 #define BUFFERSTATEWAITINGDATALOAD 6
 
-
+struct fuse *fuse;
 char statustext[12][20];
 pid_t MPID;
 struct rlimit fdlimit;
@@ -169,3 +173,100 @@ struct struct_gfsopenfilehandles *gfsfds;
 struct fuse_session *se;
 struct stat *gfsfds_attrs;
 pthread_mutex_t *gfsfds_attrslck;
+struct struct_nfsexports
+{
+  int exportnum;
+  int enabled;
+  int exported;
+  char *exportdir;
+  int exportdirsizeof;
+  char *auth;
+  int authsizeof;
+  int secsys;
+  int seckrb5;
+  int seckrb5i;
+  int seckrb5p;
+  int rw;
+  int async;
+  int nowdelay;
+  int squash;
+  int anonuid;
+  int anongid;
+  int securelocks;
+  int subtree_check;
+  int rootexport; 
+};
+
+struct struct_iscsiluns
+{
+  int tid;
+  int enabled;
+  int exported;
+  int lun;
+  char *path;
+  char sn[36];
+  int pathsizeof;
+};
+
+struct struct_iscsibindings
+{
+  int tid;
+  char *address;
+  int addresssizeof;
+  int action;
+};
+
+struct struct_iscsiportals
+{
+  char address[140];
+  int action;
+};
+
+struct struct_iscsiaccounts
+{
+  char username[128];
+  char password[128];
+  int action;
+};
+
+struct struct_iscsiaccountbindings
+{
+  char username[128];
+  int tid;
+  int action;
+};
+
+struct struct_iscsitargets
+{
+  int targetid;
+  int headerdigest;
+  int datadigest;
+};
+
+struct struct_iscsiluns *iscsiluns;
+struct struct_iscsibindings *iscsibindings;
+struct struct_iscsiaccountbindings *iscsiaccountbindings;
+struct struct_iscsiportals *iscsiportals;
+
+pthread_mutex_t iscsilunslck;
+int iscsisystemstate;
+int iscsiluncount;
+int iscsitargetcount;
+int iscsilunsallocated; // need to know that so we can allocate a change of iscsiluns maxluns without a complete nexfs server restart 
+int iscsibindingcount;
+int iscsibindingsallocated; // need to know that so we can allocate a change of iscsiluns maxluns without a complete nexfs server restart 
+int iscsiaccountbindingcount;
+int iscsiaccountbindingsallocated;
+
+int iscsiportalcount;
+int iscsiportalsallocated;
+int iscsidefaultportalcleared;
+
+struct struct_nfsexports *nfsexports;
+pthread_mutex_t nexfsexportslck;
+int nfsexportsallocated; // need to know that so we can allocate a change of nfsexports maxexports without a complete nexfs server restart 
+int nfsexportcount;
+int nfssystemstate;
+
+int stopmgmtserver;
+int mgmtserverrunning;
