@@ -1,16 +1,11 @@
-#include <inttypes.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
-
-#define IPRODUCTREV "0100"
 #define DEFAULTGFSCONFDIR "/etc/nexfs"
 #define GFSCONFIGTAG "2b339ae7a7f04e45960f8a3fcc638869"
 #define GFSCMDTAG "2b339ae7a7f04e45960f8a3fcc638870"
 #define GFSNULLTAG "2b339ae7a7f04e45960f8a3fcc638800"
 #define GFSNFSCONFTAG "2b339ae7a7f04e45960f8a3fcc638801"
-#define GFSVALUE 2
 #define GFSTAG 1
+#define GFSVALUE 2
 #define GFSHELP 3
 #define GFSVSTRING 4
 #define GFSVMIN 5
@@ -18,63 +13,24 @@
 #define GFSRESTART 7
 #define MAXTIERS 3
 
-#define DDIR 1
-#define SDIR 2
-#define RDIR 3
-#define PDIR 4
+#ifndef ENOATTR
+#if defined(ENODATA)
+#define ENOATTR ENODATA
+#else
+#define ENOATTR ENOENT
+#endif
+#endif
 
-#define HTTPGET 0
-#define HTTPPUT 1
-#define HTTPHEAD 2
-#define HTTPDELETE 3
-#define HTTPLIST 4
-
-#define T3ENCYPTIONMODE 0 // not implemented, remember to enable on jobs gfs_checklicense
-
-#define ISCSINEW 1
-#define ISCSIREMOVE 2
-#define ISCSIUPDATE 3
-#define ISCSINEWTARGETAUTH 4
-#define ISCSIREMOVETARGETAUTH 5
-
-/* #define ISCSIENABLED 1
-#define ISCSIIOTHREADS 16
-#define ISCSIMAXLUNS 16 
-#define ISCSIMAXBINDINGS 32
-#define ISCSIMAXINTERFACES 4
-#define ISCSIIQN "iqn.2021-09.nexfs.com"
-#define ISCSIIQNLOCALPART "<hostname>" */
-
-#define MGMTWEBSERVERENABLED 1
-#define MGMTWEBSERVERPORT 9200 
-#define WS_OPT_MAX_CONNECTIONS              16      // The max number of connections we can handle at the same time (this will include buffers needed for each connection)
-#define WS_OPT_ARG_MEMORY_SIZE              100     // The memory block to use to store the cookies, get args, and post args
-#define WS_SECONDS_UNTIL_CONNECTION_RELEASE 30      // How many seconds to wait after a connection stops sending to us before we hang up
-#define WS_LINE_BUFFER_SIZE                 16384     // The max number of bytes we can handle a single header line can be (including the GET line).  This is normally in the order of 16K - 128K (we default to a lot less)
-
-
-int LOWESTTIER;
-int demigrationtierorder;
+#define GFSCONFIGTAGSCOUNT 125  // tags-1 (release not included)
+#define GFSCONFIGTAGSIZE 50
 
 int GFSCONFIGTAGLENGTH;
 int GFSCMDTAGLENGTH;
 int GFSNULLTAGLENGTH;
 int GFSNFSCONFTAGLENGTH;
+char *GFSCONFDIR;
 
-#define CONFIGHIGHINODE 9223372036854775807
-#define CONFIGMAXINODES 10000
-
-
-// struct stat STATSGFSCONFIGTAG; 
-// struct stat STATSGFSCMDTAG; 
-
-// int ATTRBTIMEOUTMS=-1; // needs to be made a configurable
-
-
-#define GFSCONFIGTAGSCOUNT 103  // tags-1 (release not included)
-#define GFSCONFIGTAGSIZE 50
-
-extern char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE]; 
+char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE]; 
 
 
 
@@ -87,6 +43,76 @@ extern char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE];
 char NEXFSRELEASE[16];  // Nexfs Release
 #define NEXFSRLEASETAG "NexFS Release"
 #define NEXFSRLEASEHELP "The NexFS Release"
+
+// Define MGMTWEBSERVERENABLED
+int MGMTWEBSERVERENABLED;
+#define DEFAULTMGMTWEBSERVERENABLED "1"
+#define MGMTWEBSERVERENABLEDTAG "MgmtWebSever Enabled"
+#define MGMTWEBSERVERENABLEDHELP "Enabled the Nexfs intergrated management web server"
+#define MGMTWEBSERVERENABLEDVALIDATESTRING 0 
+#define MGMTWEBSERVERENABLEDVALIDATEMIN 0 
+#define MGMTWEBSERVERENABLEDVALIDATEMAX 1 
+#define MGMTWEBSERVERENABLEDRESTARTREQUIRED 0 
+
+// Define MGMTWEBSERVERPORT
+int MGMTWEBSERVERPORT;
+#define DEFAULTMGMTWEBSERVERPORT "9200"
+#define MGMTWEBSERVERPORTTAG "MgmtWebSever Port"
+#define MGMTWEBSERVERPORTHELP "The tcp port the managment web server should listen for requests on"
+#define MGMTWEBSERVERPORTVALIDATESTRING 0 
+#define MGMTWEBSERVERPORTVALIDATEMIN 32 
+#define MGMTWEBSERVERPORTVALIDATEMAX 65535 
+#define MGMTWEBSERVERPORTRESTARTREQUIRED 0 
+
+// Define MGMTWEBTOKENEXPIRY
+int MGMTWEBTOKENEXPIRY;
+#define DEFAULTMGMTWEBTOKENEXPIRY "600"
+#define MGMTWEBTOKENEXPIRYTAG "MgmtToken IdleExpiry"
+#define MGMTWEBTOKENEXPIRYHELP "Number of seconds after which a idle management api (and webconsole) token should expire"
+#define MGMTWEBTOKENEXPIRYVALIDATESTRING 0 
+#define MGMTWEBTOKENEXPIRYVALIDATEMIN 60 
+#define MGMTWEBTOKENEXPIRYVALIDATEMAX 315600000 
+#define MGMTWEBTOKENEXPIRYRESTARTREQUIRED 0 
+
+// Define MGMTWEBENABLECOUNTERS
+int MGMTWEBENABLECOUNTERS;
+#define DEFAULTMGMTWEBENABLECOUNTERS "1"
+#define MGMTWEBENABLECOUNTERSTAG "MgmtWebServer Counter Download"
+#define MGMTWEBENABLECOUNTERSHELP "Allow download of Nexfs Counters via the Mgmt Web Server Health URL"
+#define MGMTWEBENABLECOUNTERSVALIDATESTRING 0 
+#define MGMTWEBENABLECOUNTERSVALIDATEMIN 0 
+#define MGMTWEBENABLECOUNTERSVALIDATEMAX 1 
+#define MGMTWEBENABLECOUNTERSRESTARTREQUIRED 0 
+
+// Define MGMTWEBENABLEHEALTHCHECK
+int MGMTWEBENABLEHEALTHCHECK;
+#define DEFAULTMGMTWEBENABLEHEALTHCHECK "0"
+#define MGMTWEBENABLEHEALTHCHECKTAG "MgmtWebServer Health URLs"
+#define MGMTWEBENABLEHEALTHCHECKHELP "Report Service health as http response via the Mgmt Web Server"
+#define MGMTWEBENABLEHEALTHCHECKVALIDATESTRING 0 
+#define MGMTWEBENABLEHEALTHCHECKVALIDATEMIN 0 
+#define MGMTWEBENABLEHEALTHCHECKVALIDATEMAX 1 
+#define MGMTWEBENABLEHEALTHCHECKRESTARTREQUIRED 0 
+
+// Define MGMTWEBENABLEHEALTHCHECKWARN
+int MGMTWEBENABLEHEALTHCHECKWARN;
+#define DEFAULTMGMTWEBENABLEHEALTHCHECKWARN "1"
+#define MGMTWEBENABLEHEALTHCHECKWARNTAG "MgmtWebServer Health Warnings"
+#define MGMTWEBENABLEHEALTHCHECKWARNHELP "Report Service health Warnings, off = only report error"
+#define MGMTWEBENABLEHEALTHCHECKWARNVALIDATESTRING 0 
+#define MGMTWEBENABLEHEALTHCHECKWARNVALIDATEMIN 0 
+#define MGMTWEBENABLEHEALTHCHECKWARNVALIDATEMAX 1 
+#define MGMTWEBENABLEHEALTHCHECKWARNRESTARTREQUIRED 0 
+
+// Define STRUCTERRTHRESHOLD
+int STRUCTERRTHRESHOLD;
+#define DEFAULTSTRUCTERRTHRESHOLD "10"
+#define STRUCTERRTHRESHOLDTAG "Structure errorThreashold"
+#define STRUCTERRTHRESHOLDHELP "The number of errors received when writing to the active structure data volume that triggers a failover to the replication volume"
+#define STRUCTERRTHRESHOLDVALIDATESTRING 0 
+#define STRUCTERRTHRESHOLDVALIDATEMIN 1 
+#define STRUCTERRTHRESHOLDVALIDATEMAX 65535 
+#define STRUCTERRTHRESHOLDRESTARTREQUIRED 0 
 
 // Define NEXFSPAUSED
 int NEXFSPAUSED;  // pause all client read/write data operations 
@@ -227,7 +253,7 @@ char T1DDIR[2048];  // highest pref local data storage location
 #define T1DDIRVALIDATESTRING 1
 #define T1DDIRVALIDATEMIN 2 
 #define T1DDIRVALIDATEMAX 2048 
-#define T1DDIRRESTARTREQUIRED 1 
+#define T1DDIRRESTARTREQUIRED 0 
 
 // Define T2DDIR
 char T2DDIR[2048];  // second highest pref local data storage location
@@ -237,32 +263,32 @@ char T2DDIR[2048];  // second highest pref local data storage location
 #define T2DDIRVALIDATESTRING 1
 #define T2DDIRVALIDATEMIN 2 
 #define T2DDIRVALIDATEMAX 2048 
-#define T2DDIRRESTARTREQUIRED 1 
+#define T2DDIRRESTARTREQUIRED 0 
 
 // Define T1SDIR
  char T1SDIR[2048];  // high pref local for structure file storage location
 #define DEFAULTT1SDIR "/nexfs/s1"
-#define T1SDIRTAG "nexfs high pref structure file storage location"
-#define T1SDIRHELP "Location local storage to be used for nexfs structure file storage"
+#define T1SDIRTAG "Primary Nexfs Structure Storage Location"
+#define T1SDIRHELP "The path to the mountpoint or folder on the server that Nexfs is installed on to store file structure information, must be a full path starting with /"
 #define T1SDIRVALIDATESTRING 1
 #define T1SDIRVALIDATEMIN 2 
 #define T1SDIRVALIDATEMAX 2048 
-#define T1SDIRRESTARTREQUIRED 1 
+#define T1SDIRRESTARTREQUIRED 0 
 
 // Define T2SDIR
  char T2SDIR[2048];  // high pref local for structure file storage location
 #define DEFAULTT2SDIR "/nexfs/s2"
-#define T2SDIRTAG "nexfs structure file replication storage location"
-#define T2SDIRHELP "Location local storage to be used for the replication of nexfs structure file information"
+#define T2SDIRTAG "Structure data replication location"
+#define T2SDIRHELP "The path to the mountpoint/folder that Nexfs will use to replicate file structure information, must be a full path starting with /"
 #define T2SDIRVALIDATESTRING 1
 #define T2SDIRVALIDATEMIN 0 
 #define T2SDIRVALIDATEMAX 2048 
-#define T2SDIRRESTARTREQUIRED 1 
+#define T2SDIRRESTARTREQUIRED 0 
 
 // Define T2SREPLICATIONMODE
 int T2SREPLICATIONMODE;  // high pref local for structure file storage location
 #define DEFAULTT2SREPLICATIONMODE "0"
-#define T2SREPLICATIONMODETAG "T2SREPLICATIONMODE"
+#define T2SREPLICATIONMODETAG "Structure Data Replication Mode"
 #define T2SREPLICATIONMODEHELP "Structure index information replication mode. 0=disabled, 1=asynchronous 2=synchronous"
 #define T2SREPLICATIONMODEVALIDATESTRING 0
 #define T2SREPLICATIONMODEVALIDATEMIN 0 
@@ -272,13 +298,13 @@ int T2SREPLICATIONMODE;  // high pref local for structure file storage location
 
 // Define T1DDIRENABLED
 int T1DDIRENABLED;  // first highest pref local data storage location
-#define DEFAULTT1DDIRENABLED "1"
+#define DEFAULTT1DDIRENABLED "0"
 #define T1DDIRENABLEDTAG "Enable the Tier-1 data storage location"
 #define T1DDIRENABLEDHELP "Enable Tier-1 local storage"
 #define T1DDIRENABLEDVALIDATESTRING 0
 #define T1DDIRENABLEDVALIDATEMIN 0 
 #define T1DDIRENABLEDVALIDATEMAX 1 
-#define T1DDIRENABLEDRESTARTREQUIRED 1 
+#define T1DDIRENABLEDRESTARTREQUIRED 0 
 
 // Define T2DDIRENABLED
 int T2DDIRENABLED;  // second highest pref local data storage location
@@ -288,7 +314,7 @@ int T2DDIRENABLED;  // second highest pref local data storage location
 #define T2DDIRENABLEDVALIDATESTRING 0
 #define T2DDIRENABLEDVALIDATEMIN 0 
 #define T2DDIRENABLEDVALIDATEMAX 1 
-#define T2DDIRENABLEDRESTARTREQUIRED 1 
+#define T2DDIRENABLEDRESTARTREQUIRED 0 
 
 // Define T3DDIRENABLED
 int T3DDIRENABLED;  // Tier-3 storage location (S3 Compabitable)
@@ -298,7 +324,7 @@ int T3DDIRENABLED;  // Tier-3 storage location (S3 Compabitable)
 #define T3DDIRENABLEDVALIDATESTRING 0
 #define T3DDIRENABLEDVALIDATEMIN 0 
 #define T3DDIRENABLEDVALIDATEMAX 1 
-#define T3DDIRENABLEDRESTARTREQUIRED 1 
+#define T3DDIRENABLEDRESTARTREQUIRED 0 
 
 
 // Define T1LOWWATERMARK
@@ -365,7 +391,7 @@ int SMARTPROTECT;  // Continuous Protection
 int SMARTPROTECTOPENFILECYCLE;  // when to smart protect an open file
 #define DEFAULTSMARTPROTECTOPENFILECYCLE "60"
 #define SMARTPROTECTOPENFILECYCLETAG "Smart Protect Open File"
-#define SMARTPROTECTOPENFILECYCLEHELP "How often in minutes to smart protect change datapart on a long time open file, 0=never, max=43200"
+#define SMARTPROTECTOPENFILECYCLEHELP "How often in minutes to smart protect changed dataparts on a open file, 0=never, max=43200"
 #define SMARTPROTECTOPENFILECYCLEVALIDATESTRING 0
 #define SMARTPROTECTOPENFILECYCLEVALIDATEMIN 0 
 #define SMARTPROTECTOPENFILECYCLEVALIDATEMAX 43200 
@@ -662,6 +688,15 @@ int T3S3MAXREQTIME;  // Time passed before aborting a S3 request
 #define T3S3MAXREQTIMEVALIDATEMAX 3600
 #define T3S3MAXREQTIMERESTARTREQUIRED 0
 
+// Define T3S3MAXCONNECTTIMEOUT
+int T3S3MAXCONNECTTIMEOUT;
+#define DEFAULTT3S3MAXCONNECTTIMEOUT "15"
+#define T3S3MAXCONNECTTIMEOUTTAG "T3S3MAXCONNECTTIMEOUT"
+#define T3S3MAXCONNECTTIMEOUTHELP "How long to before timing out a new connection to the cconfigured Tier3 S3 Storage"
+#define T3S3MAXCONNECTTIMEOUTVALIDATESTRING 0 
+#define T3S3MAXCONNECTTIMEOUTVALIDATEMIN 15 
+#define T3S3MAXCONNECTTIMEOUTVALIDATEMAX 180 
+#define T3S3MAXCONNECTTIMEOUTRESTARTREQUIRED 0 
 
 // Define T3AWSSecretAccessKey
 char T3AWSSecretAccessKey[2048];  // The Secret Access Key 
@@ -747,7 +782,7 @@ int T3COMPRESSIONMINCHUNKDATABYTES;
 int T3COMPAREETAG;
 #define DEFAULTT3COMPAREETAG "0"
 #define T3COMPAREETAGTAG "T3COMPAREETAG"
-#define T3COMPAREETAGHELP "Reload the etag from T1 and compare to local data before deciding to re-upload a chunk"
+#define T3COMPAREETAGHELP "Reload the etag from T3 and compare to local data before deciding to re-upload a chunk"
 #define T3COMPAREETAGVALIDATESTRING 0
 #define T3COMPAREETAGVALIDATEMIN 0
 #define T3COMPAREETAGVALIDATEMAX 1 
@@ -761,7 +796,7 @@ char MOUNTPOINT[2048];  // The nexfs mountpoint, needed for nexfscli to communic
 #define MOUNTPOINTVALIDATESTRING 1
 #define MOUNTPOINTVALIDATEMIN 2
 #define MOUNTPOINTVALIDATEMAX 2048
-#define MOUNTPOINTRESTARTREQUIRED 0
+#define MOUNTPOINTRESTARTREQUIRED 1
 
 // Define GFSLOGLEVEL
 char GFSLOGLEVEL[8];
@@ -783,6 +818,115 @@ char SYSLOGFACILITY[11];
 #define SYSLOGFACILITYVALIDATEMAX 10 
 #define SYSLOGFACILITYRESTARTREQUIRED 0
 
+// Define SNMPTRAPENABLED
+int SNMPTRAPENABLED;
+#define DEFAULTSNMPTRAPENABLED "0"
+#define SNMPTRAPENABLEDTAG "Enable SNMPTraps"
+#define SNMPTRAPENABLEDHELP "Enable sending of SNMP traps when system state changes occur, 0=disabled, 1=enabled"
+#define SNMPTRAPENABLEDVALIDATESTRING 0 
+#define SNMPTRAPENABLEDVALIDATEMIN 0 
+#define SNMPTRAPENABLEDVALIDATEMAX 1 
+#define SNMPTRAPENABLEDRESTARTREQUIRED 0 
+
+// Define SNMPTRAPVERSION
+int SNMPTRAPVERSION;
+#define DEFAULTSNMPTRAPVERSION "2"
+#define SNMPTRAPVERSIONTAG "SNMP Version"
+#define SNMPTRAPVERSIONHELP "The SNMP Version to use when sending traps, 2=version 2c, 3= version 3"
+#define SNMPTRAPVERSIONVALIDATESTRING 0 
+#define SNMPTRAPVERSIONVALIDATEMIN 2 
+#define SNMPTRAPVERSIONVALIDATEMAX 3 
+#define SNMPTRAPVERSIONRESTARTREQUIRED 0 
+
+// Define SNMPTRAPCOMMUNITY
+char SNMPTRAPCOMMUNITY[255];
+#define DEFAULTSNMPTRAPCOMMUNITY "public"
+#define SNMPTRAPCOMMUNITYTAG "SNMP Community"
+#define SNMPTRAPCOMMUNITYHELP "The SNMP Community to use for version 1 and 2c traps"
+#define SNMPTRAPCOMMUNITYVALIDATESTRING 1 
+#define SNMPTRAPCOMMUNITYVALIDATEMIN 0 
+#define SNMPTRAPCOMMUNITYVALIDATEMAX 255 
+#define SNMPTRAPCOMMUNITYRESTARTREQUIRED 0 
+
+// Define SNMPTRAPAGENTS
+char SNMPTRAPAGENTS[1024];
+#define DEFAULTSNMPTRAPAGENTS "snmphost"
+#define SNMPTRAPAGENTSTAG "Snmp Trap Agents"
+#define SNMPTRAPAGENTSHELP "A list of one or more SNMP trap destiniations (agents), seperate each agent with a comma, agents can be specified as hostname or hostname:port, or protocol:hostname, or protocol:hostname:port where protocol is either udp or TCP, port defaults to 162 and protocol defaults to udp, see man snmpcmd for IPv6 options"
+#define SNMPTRAPAGENTSVALIDATESTRING 1 
+#define SNMPTRAPAGENTSVALIDATEMIN 0 
+#define SNMPTRAPAGENTSVALIDATEMAX 1023 
+#define SNMPTRAPAGENTSRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3SECURITYLEVEL
+int SNMPTRAPV3SECURITYLEVEL;
+#define DEFAULTSNMPTRAPV3SECURITYLEVEL "0"
+#define SNMPTRAPV3SECURITYLEVELTAG "SNMPv3 SecurityLevel"
+#define SNMPTRAPV3SECURITYLEVELHELP "Set the cwsecurity level (0=noAuthNoPriv, 1=authNoPriv, 2=authPriv) for SNMPv3 messages"
+#define SNMPTRAPV3SECURITYLEVELVALIDATESTRING 0 
+#define SNMPTRAPV3SECURITYLEVELVALIDATEMIN 0 
+#define SNMPTRAPV3SECURITYLEVELVALIDATEMAX 2 
+#define SNMPTRAPV3SECURITYLEVELRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3AUTHPROTOCOL
+int SNMPTRAPV3AUTHPROTOCOL;
+#define DEFAULTSNMPTRAPV3AUTHPROTOCOL "2"
+#define SNMPTRAPV3AUTHPROTOCOLTAG "SNMP V3 AuthProtocol"
+#define SNMPTRAPV3AUTHPROTOCOLHELP "Set the authentication protocol (0=NONE|1=MD5|2=SHA|3=SHA-512|4=SHA-384|5=SHA-256|6=SHA-224) used for authenticated SNMPv3 messages"
+#define SNMPTRAPV3AUTHPROTOCOLVALIDATESTRING 0 
+#define SNMPTRAPV3AUTHPROTOCOLVALIDATEMIN 0 
+#define SNMPTRAPV3AUTHPROTOCOLVALIDATEMAX 6 
+#define SNMPTRAPV3AUTHPROTOCOLRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3AUTHPASSWORD
+char SNMPTRAPV3AUTHPASSWORD[33];
+#define DEFAULTSNMPTRAPV3AUTHPASSWORD ""
+#define SNMPTRAPV3AUTHPASSWORDTAG "SNMPv3 AuthPassword"
+#define SNMPTRAPV3AUTHPASSWORDHELP "The SNMP Version 3 authentication pass phrase"
+#define SNMPTRAPV3AUTHPASSWORDVALIDATESTRING 1 
+#define SNMPTRAPV3AUTHPASSWORDVALIDATEMIN 0 
+#define SNMPTRAPV3AUTHPASSWORDVALIDATEMAX 32 
+#define SNMPTRAPV3AUTHPASSWORDRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3CONTEXTENGINEID
+char SNMPTRAPV3CONTEXTENGINEID[255];
+#define DEFAULTSNMPTRAPV3CONTEXTENGINEID ""
+#define SNMPTRAPV3CONTEXTENGINEIDTAG "SNMPv3 EngineID"
+#define SNMPTRAPV3CONTEXTENGINEIDHELP "Set the authoritative (security) engineID used for SNMPv3 REQUEST messages, given as a hexadecimal string (optionally prefixed by 0x)"
+#define SNMPTRAPV3CONTEXTENGINEIDVALIDATESTRING 1 
+#define SNMPTRAPV3CONTEXTENGINEIDVALIDATEMIN 0 
+#define SNMPTRAPV3CONTEXTENGINEIDVALIDATEMAX 254 
+#define SNMPTRAPV3CONTEXTENGINEIDRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3SECURITYNAME
+char SNMPTRAPV3SECURITYNAME[255];
+#define DEFAULTSNMPTRAPV3SECURITYNAME ""
+#define SNMPTRAPV3SECURITYNAMETAG "SNMPv3 securityName"
+#define SNMPTRAPV3SECURITYNAMEHELP "Set the securityName used for authenticated SNMPv3 messages"
+#define SNMPTRAPV3SECURITYNAMEVALIDATESTRING 1 
+#define SNMPTRAPV3SECURITYNAMEVALIDATEMIN 0 
+#define SNMPTRAPV3SECURITYNAMEVALIDATEMAX 254 
+#define SNMPTRAPV3SECURITYNAMERESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3PRIVACYPROTOCOL
+int SNMPTRAPV3PRIVACYPROTOCOL;
+#define DEFAULTSNMPTRAPV3PRIVACYPROTOCOL "1"
+#define SNMPTRAPV3PRIVACYPROTOCOLTAG "SNMPv3 privacy protocol"
+#define SNMPTRAPV3PRIVACYPROTOCOLHELP "Set the privacy protocol (0=DES or 1=AES) used for encrypted SNMPv3 messages"
+#define SNMPTRAPV3PRIVACYPROTOCOLVALIDATESTRING 0 
+#define SNMPTRAPV3PRIVACYPROTOCOLVALIDATEMIN 0 
+#define SNMPTRAPV3PRIVACYPROTOCOLVALIDATEMAX 1 
+#define SNMPTRAPV3PRIVACYPROTOCOLRESTARTREQUIRED 0 
+
+// Define SNMPTRAPV3PRIVACYPASSWORD
+char SNMPTRAPV3PRIVACYPASSWORD[33];
+#define DEFAULTSNMPTRAPV3PRIVACYPASSWORD ""
+#define SNMPTRAPV3PRIVACYPASSWORDTAG "SNMPv3 privacy pass phrase"
+#define SNMPTRAPV3PRIVACYPASSWORDHELP "Set the privacy pass phrase used for encrypted SNMPv3 messages"
+#define SNMPTRAPV3PRIVACYPASSWORDVALIDATESTRING 1 
+#define SNMPTRAPV3PRIVACYPASSWORDVALIDATEMIN 0 
+#define SNMPTRAPV3PRIVACYPASSWORDVALIDATEMAX 32 
+#define SNMPTRAPV3PRIVACYPASSWORDRESTARTREQUIRED 0 
 
 // Define MAXHANDLEPAGES
 int MAXHANDLEPAGES;
@@ -1115,7 +1259,7 @@ int ISCSISERVERID;
 
 // Define ISCSIENABLED
 int ISCSIENABLED;
-#define DEFAULTISCSIENABLED "1"
+#define DEFAULTISCSIENABLED "0"
 #define ISCSIENABLEDTAG "ISCSIENABLED"
 #define ISCSIENABLEDHELP "Enabled Integrated iSCSI Server, 1=Enabled, 0=Disabled"
 #define ISCSIENABLEDVALIDATESTRING 0
@@ -1132,6 +1276,16 @@ int ISCSIIOTHREADS;
 #define ISCSIIOTHREADSVALIDATEMIN 2
 #define ISCSIIOTHREADSVALIDATEMAX 128 
 #define ISCSIIOTHREADSRESTARTREQUIRED 1
+
+// Define ISCSIMAXTARGETS
+int ISCSIMAXTARGETS;
+#define DEFAULTISCSIMAXTARGETS "32"
+#define ISCSIMAXTARGETSTAG "Iscsi Max Targets"
+#define ISCSIMAXTARGETSHELP "The Maximum number of iSCSI Targets that can be configured"
+#define ISCSIMAXTARGETSVALIDATESTRING 0 
+#define ISCSIMAXTARGETSVALIDATEMIN 4 
+#define ISCSIMAXTARGETSVALIDATEMAX 128 
+#define ISCSIMAXTARGETSRESTARTREQUIRED 0
 
 // Define ISCSIMAXLUNS
 int ISCSIMAXLUNS;
@@ -1191,3 +1345,23 @@ int TERMSANDCONDITIONSACCEPTED;
 #define TERMSANDCONDITIONSACCEPTEDVALIDATEMIN 0
 #define TERMSANDCONDITIONSACCEPTEDVALIDATEMAX 1 
 #define TERMSANDCONDITIONSACCEPTEDRESTARTREQUIRED 1
+
+
+struct struct_nexfsconfinfo {
+    char *defaultvalue;
+    char *tag;
+    char *help;
+    int validatestring;
+    int validatemin;
+    int validatemax;
+    int restartrequired; 
+};
+
+size_t gfs_configkeynamesum(char *);
+int gfs_updateconfigfile(int, char *, char *, int);
+int gfs_createconffile(char *, char *, char *, char *, char *, int , int , int , int );
+int gfs_openconfigfile(char *, uint64_t *, int , int );
+int gfs_getconfig(int, char *, char *, int, int);
+int gfs_loadconfig_common(int);
+int gfs_createdefaultconf(char *, char *, struct struct_nexfsconfinfo *);
+int gfs_validateconfvalue(char *, char *, int);
