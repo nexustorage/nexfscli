@@ -32,12 +32,13 @@
 #include <grp.h>
 #include <ctype.h>
 #include <sys/wait.h>
- #include <sys/time.h>
-#include "gfsconf.h"
-#include "gfsconf_funcs.h"
-#include "gfslogging.h"
+#include <sys/time.h>
+#include "gfsconf_common.h"
 
-#define NEXFSCLIRELEASE "0.95"
+//#include "gfsconf_funcs.h"
+// #include "gfslogging.h"
+
+#define NEXFSCLIRELEASE "0.99.0"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
 
@@ -48,7 +49,7 @@ struct struct_switches {
   int nosoftwareinstall;
   int noserviceinstall; 
   int noinit;
-  int nogenerateconfigfiles;
+  int generateconfigfiles;
   int nonfs;
   int noiscsi;
   int accepttermsandcondition;
@@ -75,13 +76,28 @@ void gfs_createnfsexportsymlink()
 {
   return;
 }
+
+void gfs_check_server_functionaility()
+{
+  return;
+}
+
+void gfs_setstructrep()
+{
+  return;
+}
+
+void gfs_clearlicense(void)
+{
+  return;
+}
 // end of ghost functions
 
-int process_argvswitches(int argc, char *argv[] )
+int process_argvswitches(int *argc, char *argv[] )
 {
   int loop=0;
 
-  for( loop=1; loop < argc; loop++ )
+  for( loop=1; loop < *argc; loop++ )
   {
     if ( strncmp(argv[loop],"--",2) == 0 )
     {
@@ -107,8 +123,8 @@ int process_argvswitches(int argc, char *argv[] )
           cmdlineswitches.noinit=1;
           break;
 
-        case 29027: // --nogenerateconfigfiles 
-          cmdlineswitches.nogenerateconfigfiles=1;
+        case 29027: // --generateconfigfiles 
+          cmdlineswitches.generateconfigfiles=1;
           break;
 
         case 2876: // --nonfs 
@@ -136,9 +152,18 @@ int process_argvswitches(int argc, char *argv[] )
           break;
 
         default:
-          printf("ERR: unknown commandline option passed %s\n",argv[loop]);
-          return -1; 
+          if ( strncmp(argv[loop],"--confdir=",10) == 0 )
+          {
+            GFSCONFDIR=strstr(argv[loop],"=")+1;
+            --*argc;
+          }
+          else
+          { 
+            printf("ERR: unknown commandline option passed %s\n",argv[loop]);
+            return -1; 
+          }
       }
+
     }
   }
 
@@ -146,7 +171,9 @@ int process_argvswitches(int argc, char *argv[] )
 }
 void print_connecterr()
 {
-  printf("Connection to nexfs server failed, check any passed options are correct or server status by running: nexfscli server status\n");
+  char mountpoint[2048] = { 0 };
+  gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+  printf("Connection to nexfs server failed over mountpoint (%s), check any passed options are correct or server status by running: nexfscli server status\n",mountpoint);
 }
 
 int generateconfigfiles()
@@ -157,11 +184,11 @@ int generateconfigfiles()
   printf("Generating Configuration Files\n");
 
   
-  res=gfs_loadconfig(1);
+  res=gfs_loadconfig_common(1);
  
   if ( res == 0 )
   {
-    snprintf(basefoldername,260016,"%s/%s",DEFAULTGFSCONFDIR,GFSCONFIGTAG);
+    snprintf(basefoldername,260016,"%s/%s",GFSCONFDIR,GFSCONFIGTAG);
     res = mkdir(basefoldername, 0700);
     if (( res != 0 ) && ( errno != EEXIST ))
     {
@@ -180,7 +207,7 @@ int generateconfigfiles()
     }
 
     errno=0;
-    snprintf(basefoldername,260016,"%s/%s",DEFAULTGFSCONFDIR,GFSCMDTAG);
+    snprintf(basefoldername,260016,"%s/%s",GFSCONFDIR,GFSCMDTAG);
     res = mkdir(basefoldername, 0700);
 
     if (( res != 0 ) && ( errno != EEXIST ))
@@ -237,43 +264,7 @@ int check_args(int args, int expected, int equalgreater )
   return 0;
 }
 
-int getliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
-{
-  int res=0;
-  int lcp;
-  char returnbuf[4096];
-  char TAGPATH[4500];
 
-  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
-
-  if ( res == -1 )
-  {
-    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",errno,strerror(errno));
-    return -errno;
-  }
-
-  snprintf(TAGPATH,4500,"%s/%s/%s",returnbuf,GFSCONFIGTAG,CONFTAG);
-
-  lcp = open( TAGPATH, O_RDONLY); 
-
-  if (lcp == -1) 
-  {
-    print_connecterr();
-    return -errno;
-  }
-
-  res = pread(lcp, valuebuf, bufsize, 0);
-  valuebuf[res]=0;
-  close(lcp);
-
-  if (res == -1)
-  {
-     printf("ERR: failed to read value with errno %d - %s ",errno,strerror(errno));
-     return -errno;
-  } 
-
-  return res;
-}
 
 enum pkgmgr {
   apt=1,
@@ -519,11 +510,11 @@ int installsystemdservice()
     "[Service]\n"
     "Type=forking\n"
     "PIDFile=/run/nexfs.pid\n"
-    "ExecStart=/usr/sbin/nexfscli server start\n"
-    "ExecStop=/usr/sbin/nexfscli server stop\n"
+    "ExecStart=/usr/bin/nexfscli server start\n"
+    "ExecStop=/usr/bin/nexfscli server stop\n"
     "\n"
     "[Install]\n"
-    "Alias=nexfs.service\n" ;
+    "WantedBy=sysinit.target\n" ;
 
   if ( stat("/usr/bin/systemctl",&stbuf) != 0 )
   {
@@ -567,33 +558,7 @@ int installsystemdservice()
   return 0;
 }
 
-int releaseinfo(int argc, char *argv[])
-{
-  int res=0;
-  char returnbuf[16];
-
-  if ( check_args(argc, 4, GREATER )) return -1;
-
-  if ( strcmp(argv[2],"get") == 0 )
-  {
-    if ( strcmp(argv[3],"nexfscli") == 0 )
-    {
-      printf("%s\n",NEXFSCLIRELEASE);
-      return 0;
-    }
-    else if ( strcmp(argv[3],"nexfs") == 0 )  
-    {
-      if (( res=getliveconfig("NEXFSRELEASE", returnbuf, 16) ) < 0 ) return(res);
-
-      printf("%s\n",returnbuf);
-      return res;
-    }
-  }
-  printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
-  return -1;
-}
-
-int getserverstats()
+int getservercounters()
 {
   char buf[65536] = { 0 };
   char mountpoint[2048];
@@ -610,7 +575,7 @@ int getserverstats()
     return -errno;
   }
 
-  snprintf(TAGPATH,2224,"%s/%s/getstats",mountpoint,GFSCMDTAG);
+  snprintf(TAGPATH,2224,"%s/%s/getcounters",mountpoint,GFSCMDTAG);
 
   lcp = open( TAGPATH, O_RDWR|O_DIRECT ); 
 
@@ -655,6 +620,137 @@ int getserverstats()
   } 
 
   return 0;
+}
+
+
+int getserverstats(int quite)
+{
+  char buf[65536] = { 0 };
+  char mountpoint[2048];
+  int res;
+  int lcp;
+  int readoffset=0;
+  char TAGPATH[2224];
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",mountpoint,sizeof(mountpoint),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(TAGPATH,2224,"%s/%s/getstats",mountpoint,GFSCMDTAG);
+
+  lcp = open( TAGPATH, O_RDWR|O_DIRECT ); 
+
+  if (lcp == -1) 
+  {
+    print_connecterr();
+    return -errno;
+  }
+
+  strncpy(buf,"",65536);
+
+  res = pwrite(lcp, buf,65536 ,0 );
+  if (res < 0 )
+  {
+     printf("ERR: failed to send cmd to nexfs with errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  } 
+
+  while ( (res = pread(lcp,buf,65536,readoffset)) > 0 )
+  {
+    if ( res < 65536 )
+      buf[res]=0;
+    
+    readoffset+=(res-1);
+
+    if ( quite == 0 ) printf("%s",buf);
+  }
+
+  if ( res < 0 )
+  {
+     printf("ERR: failed to read stats from nexfs errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  }
+
+
+  res = close(lcp);
+
+  if (res < 0 )
+  {
+     printf("ERR: failed to request server stats errno %d - %s\n",errno,strerror(errno));
+     return -errno;
+  } 
+
+  return 0;
+}
+
+int getliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
+{
+  int res=0;
+  int lcp;
+  char returnbuf[4096];
+  char TAGPATH[4500];
+
+  res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
+
+  if ( res == -1 )
+  {
+    printf("Failed to retrieve nexfs MOUNTPOINT from configuration data, errno %d - %s\n",errno,strerror(errno));
+    return -errno;
+  }
+
+  snprintf(TAGPATH,4500,"%s/%s/%s",returnbuf,GFSCONFIGTAG,CONFTAG);
+
+  lcp = open( TAGPATH, O_RDONLY); 
+
+  if (lcp == -1) 
+  {
+    if ( getserverstats(1) == 0 )
+     printf("Failed to read requested value (is the requested configuration valid?)");
+
+    return -errno;
+  }
+
+  res = pread(lcp, valuebuf, bufsize, 0);
+  valuebuf[res]=0;
+  close(lcp);
+
+  if (res == -1)
+  {
+     printf("ERR: failed to read value with errno %d - %s ",errno,strerror(errno));
+     return -errno;
+  } 
+
+  return res;
+}
+
+int releaseinfo(int argc, char *argv[])
+{
+  int res=0;
+  char returnbuf[16];
+
+  if ( check_args(argc, 4, GREATER )) return -1;
+
+  if ( strcmp(argv[2],"get") == 0 )
+  {
+    if ( strcmp(argv[3],"nexfscli") == 0 )
+    {
+      printf("%s\n",NEXFSCLIRELEASE);
+      return 0;
+    }
+    else if ( strcmp(argv[3],"nexfs") == 0 )  
+    {
+      if (( res=getliveconfig("NEXFSRELEASE", returnbuf, 16) ) < 0 ) return(res);
+
+      printf("%s\n",returnbuf);
+      return res;
+    }
+  }
+  printf("%s: incorrect format, type %s help\n",argv[0],argv[0]);
+  return -1;
 }
 
 int showfiletierusage(char *filename,int option )
@@ -1309,7 +1405,7 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
       return -1;
     }
 
-    if ( atoi(enabled) != 1 )
+    if ( atoi(enabled) == 0 )
     {
       return 0;
     }
@@ -1327,11 +1423,9 @@ int checkdirectoryexists(char *CONFVAR, char *ENABLEDVAR)
 
   if ( res != 0 )
   {
-    printf("ERROR: cannot stat directory %s configured for %s \n",thedir, CONFVAR);
-    return -1;
+    printf("WARNING: cannot stat directory %s configured for %s \n",thedir, CONFVAR);
   }
-
-  if ( (stbuf.st_mode & S_IFMT) != S_IFDIR )
+  else if ( (stbuf.st_mode & S_IFMT) != S_IFDIR )
   {
     printf("ERROR: value %s for configuration %s is not a directory \n",thedir, CONFVAR);
     return -1;
@@ -1385,17 +1479,18 @@ int startserver(int DEBUG)
     return -1;
   }
 
-  if ( checkdirectoryexists("T1SDIR",NULL) != 0 ) return -1; 
-  if ( checkdirectoryexists("T1DDIR","T1DDIRENABLED") != 0 ) return -1; 
-  if ( checkdirectoryexists("T2DDIR","T2DDIRENABLED") != 0 ) return -1; 
+  checkdirectoryexists("T1SDIR",NULL);
+  checkdirectoryexists("T2SDIR","T2SREPLICATIONMODE"); 
+  checkdirectoryexists("T1DDIR","T1DDIRENABLED"); 
+  checkdirectoryexists("T2DDIR","T2DDIRENABLED"); 
 
   if (  atoi(ALLOWOTHERS) == 0 ) 
   {
-    snprintf(CMD,4400,"%s -o allow_other,noforget %s",NEXFSCMD,mountpoint);
+    snprintf(CMD,4400,"%s --confdir=%s -o allow_other,noforget %s",NEXFSCMD,GFSCONFDIR,mountpoint);
   }
   else
   {
-    snprintf(CMD,4400,"%s -o noforget %s",NEXFSCMD,mountpoint);
+    snprintf(CMD,4400,"%s  --confdir=%s -o noforget %s",NEXFSCMD,GFSCONFDIR,mountpoint);
   }
 
   snprintf(LOCALCMD,4402,"./%s",CMD);
@@ -2638,9 +2733,13 @@ int server(int argc, char *argv[])
   {
     return ( stopserver(1) );
   }
+  else if ( strcmp(argv[2],"counters") == 0 )
+  {
+    return ( getservercounters() );
+  }
   else if ( strcmp(argv[2],"stats") == 0 )
   {
-    return ( getserverstats() );
+    return ( getserverstats(0) );
   }
 
   printf("%s: Unknown command format, type %s help\n",argv[0],argv[0]);
@@ -2654,21 +2753,21 @@ int init()
   struct stat stbuf = {0};
   errno=0;
 
-  res = stat(DEFAULTGFSCONFDIR,&stbuf);
+  res = stat(GFSCONFDIR,&stbuf);
 
   if (( res != 0 ) && (errno != ENOENT ))
   {
-    printf("%s: Failed to stat configuration directory %s, errno %d - %s\n",MYNAME,DEFAULTGFSCONFDIR,errno,strerror(errno));
+    printf("%s: Failed to stat configuration directory %s, errno %d - %s\n",MYNAME,GFSCONFDIR,errno,strerror(errno));
     return -errno; 
   }
 
   if ( errno == ENOENT )
   {
-    res = mkdir(DEFAULTGFSCONFDIR, 0755);
+    res = mkdir(GFSCONFDIR, 0755);
 
     if ( res != 0 )
     {
-      printf("%s: Failed to create configuration directory %s, errno %d - %s\n",MYNAME,DEFAULTGFSCONFDIR,errno,strerror(errno));
+      printf("%s: Failed to create configuration directory %s, errno %d - %s\n",MYNAME,GFSCONFDIR,errno,strerror(errno));
       return -errno;
     }
   }
@@ -3294,7 +3393,7 @@ int installnexfs()
       return -1;
     }
   }
-  else if ( cmdlineswitches.nogenerateconfigfiles == 0 )
+  else if ( cmdlineswitches.generateconfigfiles == 1 )
   {
     if ( generateconfigfiles() == -1 )
     {
@@ -3316,20 +3415,35 @@ int upgradenexfs()
 
 int help(int argc, char *argv[])
 {
+  int NUMOFLEVELS=0;
+  char *VALIDDEBUGLEVELSLABELS[] = {  "CRIT", "ERR", "WARNING", "NOTICE","INFO", "DEBUG" };
+  char *VALIDSYSLOGFACILITY[] = { "LOG_USER", "LOG_LOCAL0", "LOG_LOCAL1", "LOG_LOCAL2", "LOG_LOCAL3", "LOG_LOCAL4", "LOG_LOCAL5", "LOG_LOCAL6", "LOG_LOCAL7" };
+  int loop=0;
+
   if ( argc > 2 )
   {
-    char returnbuf[2048];
-
     if ( strcmp(argv[2],"loglevels") == 0 )
     {
-      gfs_printloglevels(returnbuf,2048);
-      printf("Valid Loglevels:\n%s",returnbuf);
+      NUMOFLEVELS=(sizeof(VALIDDEBUGLEVELSLABELS)/sizeof(VALIDDEBUGLEVELSLABELS[0]));
+
+      printf("Valid Loglevels:\n");
+      for ( loop=0; loop<NUMOFLEVELS; loop++)
+      {
+        printf("%s\n",VALIDDEBUGLEVELSLABELS[loop]);
+      }
+      printf("\n");
       return 0;
     }
     else if ( strcmp(argv[2],"syslogfacility") == 0 )
     {
-      gfs_printsyslogfacilities(returnbuf,2048);
-      printf("Valid syslogfacilities:\n%s",returnbuf);
+      printf("Valid syslogfacilities:\n");
+      NUMOFLEVELS=(sizeof(VALIDSYSLOGFACILITY)/sizeof(VALIDSYSLOGFACILITY[0]));
+
+      for ( loop=0; loop<NUMOFLEVELS; loop++)
+      {
+        printf("%s\n",VALIDSYSLOGFACILITY[loop]);
+      }
+      printf("\n");
       return 0;
     }
     else if ( strcmp(argv[2],"configtags") == 0 )
@@ -3347,64 +3461,70 @@ int help(int argc, char *argv[])
     }
   }
 
-  printf("configfile get all [tagname]\n");
-  printf("configfile get taglabel [tagname]\n");
-  printf("configfile get value [tagname]\n");
-  printf("configfile get help [tagname]\n");
-  printf("configfile set [tagname] [newvalue]\n");
-  printf("configfile set defaults [system]  - where system is either minio or s3\n");
-  printf("configfile get loglevel\n");
-  printf("configfile dumpall\n");
-  printf("liveconfig get value [tagname]\n");
-  printf("liveconfig set [tagname] [newvalue]\n");
-  printf("liveconfig get loglevel\n");
-  printf("liveconfig set loglevel [newloglevel]\n");
-  printf("liveconfig get syslogfacility\n");
-  printf("liveconfig set syslogfacility [newsyslogfacility]\n");
-  printf("liveconfig dumpall\n");
-  printf("security admin get cmd group\n");
-  printf("security admin set cmd group [groupname or id]\n");
-  printf("security admin get config group\n");
-  printf("security admin set config group [groupname or id]\n");
-  printf("security admin get cmd access\n");
-  printf("security admin get config access\n");
-  printf("nfs getexports [optional output filename]\n");
-  printf("nfs putexports [optional import filename]\n");
-  printf("iscsi getconf [optional output filename]\n");
-  printf("iscsi putconf [optional import filename]\n");
-  printf("iscsi show targets\n");
-  printf("iscsi show target [targetid]\n");
-  printf("iscsi show interfaces\n");
-  printf("iscsi show sessions\n");
-  printf("iscsi show targetsessions [targetid]\n");
-  printf("iscsi stat targets\n");
-  printf("iscsi stat target [targetid]\n");
-  printf("iscsi stat sessions\n");
-  printf("iscsi stat session [sessionid]\n");
-  printf("iscsi stat connections\n");
-  printf("iscsi stat connection [connectid]\n");
-  printf("iscsi stat luns\n");
-  printf("iscsi stat lun [targetid] [lunid]\n");
-  printf("iscsi stat targetluns [targetid]\n");
-  printf("help loglevels\n");
-  printf("help syslogfacility\n");
-  printf("help configtags\n");
-  printf("help configtag [tagname]\n");
-  printf("release get nexfscli\n");
-  printf("release get nexfs\n");
-  printf("file info [filename (including nexfs path)]\n");
-  printf("file tierusage [filename (including nexfs path)]\n");
-  printf("file extendedtierusage [filename (including nexfs path)]\n");
-  printf("file movetotier3 [filename (including path)]\n");
-  printf("jobqueue list\n");
-  printf("jobqueue list jobid [jobid]\n");
-  printf("server status\n");
-  printf("server start\n");
-  printf("server stop\n");
-  printf("server forcestop\n");
-  printf("server license\n");
-  printf("server stats\n");
-  printf("--allhelp\n");
+  printf("Use %s the manage the local Nexustorage Nexfs Server\n",argv[1]);
+  printf("Usage %s COMMAND ARGS --allhelp --confdir=PATH\n",argv[0]);
+  printf("  --allhelp, print extended help, requires no additional COMMAND or ARGS\n");
+  printf("  --confdir, path to nexfs configuration directory, (optional) requried if not using the Nexfs default\n");
+  printf("  The configuration dir can also be set by the enviromental var nexfsconfdir\n"); 
+  printf("COMMAND and ARGS:");
+  printf("  configfile get all [tagname]\n");
+  printf("  configfile get taglabel [tagname]\n");
+  printf("  configfile get value [tagname]\n");
+  printf("  configfile get help [tagname]\n");
+  printf("  configfile set [tagname] [newvalue]\n");
+  printf("  configfile set defaults [system]  - where system is either minio or s3\n");
+  printf("  configfile get loglevel\n");
+  printf("  configfile dumpall\n");
+  printf("  liveconfig get value [tagname]\n");
+  printf("  liveconfig set [tagname] [newvalue]\n");
+  printf("  liveconfig get loglevel\n");
+  printf("  liveconfig set loglevel [newloglevel]\n");
+  printf("  liveconfig get syslogfacility\n");
+  printf("  liveconfig set syslogfacility [newsyslogfacility]\n");
+  printf("  liveconfig dumpall\n");
+  printf("  security admin get cmd group\n");
+  printf("  security admin set cmd group [groupname or id]\n");
+  printf("  security admin get config group\n");
+  printf("  security admin set config group [groupname or id]\n");
+  printf("  security admin get cmd access\n");
+  printf("  security admin get config access\n");
+  printf("  nfs getexports [optional output filename]\n");
+  printf("  nfs putexports [optional import filename]\n");
+  printf("  iscsi getconf [optional output filename]\n");
+  printf("  iscsi putconf [optional import filename]\n");
+  printf("  iscsi show targets\n");
+  printf("  iscsi show target [targetid]\n");
+  printf("  iscsi show interfaces\n");
+  printf("  iscsi show sessions\n");
+  printf("  iscsi show targetsessions [targetid]\n");
+  printf("  iscsi stat targets\n");
+  printf("  iscsi stat target [targetid]\n");
+  printf("  iscsi stat sessions\n");
+  printf("  iscsi stat session [sessionid]\n");
+  printf("  iscsi stat connections\n");
+  printf("  iscsi stat connection [connectid]\n");
+  printf("  iscsi stat luns\n");
+  printf("  iscsi stat lun [targetid] [lunid]\n");
+  printf("  iscsi stat targetluns [targetid]\n");
+  printf("  help loglevels\n");
+  printf("  help syslogfacility\n");
+  printf("  help configtags\n");
+  printf("  help configtag [tagname]\n");
+  printf("  release get nexfscli\n");
+  printf("  release get nexfs\n");
+  printf("  file info [filename (including nexfs path)]\n");
+  printf("  file tierusage [filename (including nexfs path)]\n");
+  printf("  file extendedtierusage [filename (including nexfs path)]\n");
+  printf("  file movetotier3 [filename (including path)]\n");
+  printf("  jobqueue list\n");
+  printf("  jobqueue list jobid [jobid]\n");
+  printf("  server status\n");
+  printf("  server start\n");
+  printf("  server stop\n");
+  printf("  server forcestop\n");
+  printf("  server license\n");
+  printf("  server stats\n");
+  printf("  server counters\n");
   return 0;
 }
 
@@ -3417,7 +3537,7 @@ int allhelp(int argc, char *argv[])
   printf("generateconfigfiles\n");
   printf("installsystemdservice\n");
   printf("accepttermsandconditions\n");
-  printf("install --reinstall --configoverwrite --nosoftwareinstall --noserviceinstall --noinit --nogenerateconfigfiles --nonfs --accepttermsandcondition --noinstallpackages --noprompt\n");
+  printf("install --reinstall --configoverwrite --nosoftwareinstall --noserviceinstall --noinit --generateconfigfiles --nonfs --accepttermsandcondition --noinstallpackages --noprompt\n");
   printf("file info -set [filename (including nexfs path)] attrib newvalue\n");
 
   help(argc,argv);
@@ -3430,6 +3550,7 @@ int main(int argc, char *argv[])
   int res=0;
 
   MYNAME=argv[0];
+  GFSCONFDIR=NULL;
 
   if ( check_args(argc, 2, GREATER )) return -1;
 
@@ -3439,9 +3560,17 @@ int main(int argc, char *argv[])
     return 0;
   } 
 
-  if (  process_argvswitches(argc,argv) == -1 )
+  if (  process_argvswitches(&argc,argv) == -1 )
     return -1;
 
+  if (GFSCONFDIR==NULL)
+  {
+    if ( (GFSCONFDIR=getenv( "nexfsconfdir" )) == NULL )
+    {
+      GFSCONFDIR=malloc(strlen(DEFAULTGFSCONFDIR)+1);
+      snprintf(GFSCONFDIR,strlen(DEFAULTGFSCONFDIR)+1,"%s",DEFAULTGFSCONFDIR);
+    }
+  }
 
   if ( strcmp(argv[1],"help") == 0 )
   {
