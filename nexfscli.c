@@ -1,4 +1,5 @@
-// Copyright (c) 2021 Nexustorage Limited.
+// Copyright (c) 2021-2023 Nexustorage Limited.
+// Copyright (c) 2021-2023 Glen Olsen (glen @ glenolsen.net).
 // nexfscli.c Nexustorage nexfs commandline interface
 //
 // This file is part of Nexustorage Nexfs Storage stack
@@ -38,7 +39,7 @@
 //#include "gfsconf_funcs.h"
 // #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "0.99.0"
+#define NEXFSCLIRELEASE "1.01(23)"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
 
@@ -286,7 +287,7 @@ int whichpackagemanager()
 
 int installaptpackagedepnds()
 {
-  const char * aptpackages[] =  {"fuse3", "libcurl4", "libuuid1", "openssl"};
+  const char * aptpackages[] =  {"fuse3", "libcurl4", "libuuid1", "openssl", "libssl-dev"};
   char cmd[1024] = { 0 };
   const int packages = 4;
   int package=0;
@@ -362,8 +363,8 @@ int downloadinstallnexfsbinaries()
 
   const char *curlgetnexfs = "/usr/bin/curl -L -o /usr/sbin/nexfs.server";
   const char *wgetnexfs = "/usr/bin/wget -O /usr/sbin/nexfs.server";
-  const char *curlgetnexfscli = "/usr/bin/curl -L -o /usr/sbin/nexfscli";
-  const char *wgetnexfscli = "/usr/bin/wget -O /usr/sbin/nexfscli";
+  const char *curlgetnexfscli = "/usr/bin/curl -L -o /usr/bin/nexfscli";
+  const char *wgetnexfscli = "/usr/bin/wget -O /usr/bin/nexfscli";
 
   char downloadcmd[2048] = { 0 };
   int res=0;
@@ -378,21 +379,21 @@ int downloadinstallnexfsbinaries()
   snprintf(downloadcmd,2048,"%s %s 2>&1 | grep -q 'HTTP/2 200'",curlgetnexfs,nexfsurl);
   res=system(downloadcmd);
 
-  if ( res == -1 )
+  if (( res == -1 ) || ( res == 256 )) 
   {
     snprintf(downloadcmd,2048,"%s %s",wgetnexfs,nexfsurl);
     res=system(downloadcmd);
 
-    if ( res == -1 )
+    if (( res == -1 ) || ( res == 256 ))
     {
-      printf("ERR: failed to download latest release of nexfs.server\n");
+      printf("ERR: failed to download latest release of nexfs.server, error status %d\n",res);
       return -1;
     }
   }
 
-  if ( WEXITSTATUS(res)  != 1 )
+  if ( WEXITSTATUS(res)  != 0 )
   {
-    printf("ERR: failed to download latest release of nexfs.server\n");
+    printf("ERR: failed to download latest release of nexfs.server, error status %d\n",WEXITSTATUS(res));
     return -1;
   }
 
@@ -411,33 +412,33 @@ int downloadinstallnexfsbinaries()
   snprintf(downloadcmd,2048,"%s %s 2>&1 | grep -q 'HTTP/2 200'",curlgetnexfscli,nexfscliurl);
   res=system(downloadcmd);
 
-  if ( res == -1 )
+  if (( res == -1 ) || ( res == 256 ))
   {
     snprintf(downloadcmd,2048,"%s %s",wgetnexfscli,nexfscliurl);
     res=system(downloadcmd);
 
-    if ( res == -1 )
+    if (( res == -1 ) || ( res == 256 ))
     {
       printf("ERR: failed to download latest release of nexfscli\n");
       return -1;
     }
   }
 
-  if ( WEXITSTATUS(res) != 1 )
+  if ( WEXITSTATUS(res) != 0 )
   {
     printf("ERR: failed to download latest release of nexfscli\n");
     return -1;
   }
 
-  if ( chown("/usr/sbin/nexfscli",0,0) == -1 )
+  if ( chown("/usr/bin/nexfscli",0,0) == -1 )
   {
-    printf("ERR: failed to chown to owner and group root /usr/sbin/nexfscli\n");
+    printf("ERR: failed to chown to owner and group root /usr/bin/nexfscli\n");
     return -1;
   }
 
-  if ( chmod("/usr/sbin/nexfscli",0550) == -1 )
+  if ( chmod("/usr/bin/nexfscli",0550) == -1 )
   {
-    printf("ERR: failed to chmod to 550 /usr/sbin/nexfscli\n");
+    printf("ERR: failed to chmod to 550 /usr/bin/nexfscli\n");
     return -1;
   } 
   return 0;
@@ -468,23 +469,23 @@ int checkinstalledbinaries()
     return -1;
   }
 
-  if ( stat("/usr/sbin/nexfscli",&stbuf) != 0 )
+  if ( stat("/usr/bin/nexfscli",&stbuf) != 0 )
   {
-    printf("ERR: Cannot stat /usr/sbin/nexfscli, error %s\n",strerror(errno));
+    printf("ERR: Cannot stat /usr/bin/nexfscli, error %s\n",strerror(errno));
     return -1;
   }
 
-  res=system("/usr/sbin/nexfscli release get nexfscli");
+  res=system("/usr/bin/nexfscli release get nexfscli");
 
   if ( res == -1 )
   {
-    printf("ERR: Cannot run /usr/sbin/nexfscli, error %s\n",strerror(errno));
+    printf("ERR: Cannot run /usr/bin/nexfscli, error %s\n",strerror(errno));
     return -1;
   }
 
   if ( res != 0 )
   {
-    printf("ERR: '/usr/sbin/nexfscli release get nexfsci' failed to return version number\n");
+    printf("ERR: '/usr/bin/nexfscli release get nexfsci' failed to return version number\n");
     return -1;
   }
 
@@ -879,6 +880,25 @@ int setliveconfig(char *CONFTAG, char *valuebuf, int bufsize)
   char returnbuf[2048];
   char TAGPATH[2224];
 
+  res=gfs_validateconfvalue(CONFTAG,valuebuf, 1);
+
+  if ( res < 0 )
+  {
+    if ( res == -ENOTSUP )
+    {
+      printf("New value does not validate against configuration requirements\n");
+      return ENOTSUP;
+    }
+    else if ( res == -EPERM )
+    {
+      printf("Configuration not live changable, restart required after updating config file to change\n");
+      return EACCES;
+    }
+    else if ( res == -EACCES )
+    printf("Access Denied, you do not have the required permissions required for this request\n");
+    return res;
+  }
+
   res=gfs_getconfig(GFSVALUE,"MOUNTPOINT",returnbuf,sizeof(returnbuf),0);
 
   if ( res == -1 )
@@ -1204,7 +1224,7 @@ int ismounted()
     return -errno;
   }
 
-  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,sizeof(NEXFSCMD),0);
+  res=gfs_getconfig(GFSVALUE,"NEXFSCMD",NEXFSCMD,2048,0);
 
   if ( res == -1 )
   {
@@ -1658,7 +1678,16 @@ int displayfileinfo(char *filename, int option )
       return -errno;
     }
     returnbuf[res]=0;
-    printf("FID: %s\n", returnbuf);
+    printf("SID: %s\n", returnbuf);
+
+   if ( (res = fgetxattr(sfp, "user.nexfsgfscid", returnbuf, 37)) == -1 )
+    {
+      printf("ERROR: Failed to retrive UID, error - %s\n",strerror(errno));
+      return -errno;
+    }
+    returnbuf[res]=0;
+    printf("SCID: %s\n", returnbuf);
+
   }
 
   if ( fstat(sfp,&stbuf) != 0 )
@@ -1708,6 +1737,14 @@ int displayfileinfo(char *filename, int option )
   }
   returnbuf[res]=0;
   printf("LockToTier: %s\n", returnbuf);
+
+  if ( (res = fgetxattr(sfp, "user.nexfssmartprotected", returnbuf, 33)) == -1 )
+  {
+    printf("ERROR: Failed to retrive smartprotected, error - %s\n",strerror(errno));
+    return -errno;
+  }
+  returnbuf[res]=0;
+  printf("SmartProtected: %s\n", returnbuf);
 
   if ( (res = fgetxattr(sfp, "user.nexfsoldesttier1datafile", returnbuf, 33)) == -1 )
   {
@@ -1763,7 +1800,7 @@ int file (int argc, char *argv[])
   {
     if ( argc == 5 )
     {
-      if ( strcmp(argv[4],"-fid") == 0)
+      if ( strcmp(argv[4],"-sid") == 0)
       {
         return displayfileinfo(argv[3],1);
       }
@@ -1832,14 +1869,12 @@ int configfiles_setdefaults(int option)
   {
     for ( loop=0; loop < defrows; loop++ )
     {
-      if ( option == 0 ) // 0=minio, 1=AWS S3
-      {
+      if ( option == 0 ) // 0=minio, 1=AWS S3, 2=FileBase
         strcpy(newvalue,*DEFAULTS[loop][1]);
-      }
-      else
-      {
+      else if ( option == 1 )
         strcpy(newvalue,*DEFAULTS[loop][2]);
-      }
+      else 
+        strcpy(newvalue,*DEFAULTS[loop][3]);
     
       res=gfs_updateconfigfile(GFSVALUE,*DEFAULTS[loop][0],newvalue,strlen(newvalue));
 
@@ -1856,8 +1891,10 @@ int configfiles_setdefaults(int option)
 
     if ( option == 0 ) // 0=minio, 1=AWS S3
       printf("%s",MSG[0]);
-    else
+    else if ( option == 1 )
       printf("%s",MSG[1]);
+    else
+      printf("%s",MSG[2]);
 
     printf("Restart nexfs server for new configuration to take effect\n");
     
@@ -2883,6 +2920,7 @@ int replicatedirent(char *src, char *dst)
   struct stat srcstat;
   struct timespec *srctimespec[2];
 
+
   if ( stat(src, &srcstat) != 0 )
   { 
     res=errno;
@@ -2931,7 +2969,7 @@ int replicatedirent(char *src, char *dst)
   srctimespec[0]=&srcstat.st_atim;
   srctimespec[1]=&srcstat.st_mtim;
 
-  if ( utimensat(-1,dst,*srctimespec,AT_SYMLINK_NOFOLLOW) != 0 )
+  if ( utimensat(-1,dst, *srctimespec,AT_SYMLINK_NOFOLLOW) != 0 )
   { 
     res=errno;
     printf("%s:replicatedirent, failed to futimens %s, error %s",MYNAME,dst,strerror(errno));
@@ -3512,7 +3550,7 @@ int help(int argc, char *argv[])
   printf("  help configtag [tagname]\n");
   printf("  release get nexfscli\n");
   printf("  release get nexfs\n");
-  printf("  file info [filename (including nexfs path)]\n");
+  printf("  file info [filename (including nexfs path)] {-sid}\n");
   printf("  file tierusage [filename (including nexfs path)]\n");
   printf("  file extendedtierusage [filename (including nexfs path)]\n");
   printf("  file movetotier3 [filename (including path)]\n");

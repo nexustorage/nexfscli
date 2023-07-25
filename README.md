@@ -60,7 +60,7 @@ To get a list of the most common nexfscli options run:
 
 To get a full list including less commonly run options:
 
-	nexfscli -allhelp
+	nexfscli --allhelp
 
 Starting, stopping nexfs
 
@@ -89,8 +89,8 @@ Which for a running nexfs server will result in output similar to:
 
 	Nexfs Mountpoint: /mnt/nexfs
 	Server Status: OK
-	Release: 0.95
-	Software Expires: Fri 2027-03-19 18:38:17
+	Release: 1.01(23) 
+	Software Expires: Fri 2029-03-19 18:38:17
 	License: Core 5TB
 	Managed Capacity 0TB (7GB)
 	Process ID: 326455
@@ -108,6 +108,7 @@ Which for a running nexfs server will result in output similar to:
 	iSCSI Status: OK
 	NFS Status: Unknown
 	Mgmt Web Server: Unknown
+	Content Web Server: Unknown
 	Job Scheduler: Enabled
 	BG Migration Scheduler: Paused
 	Deletion Scheduler: Enabled
