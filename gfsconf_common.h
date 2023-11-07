@@ -21,7 +21,8 @@
 #endif
 #endif
 
-#define GFSCONFIGTAGSCOUNT 140  // tags-1 (release not included)
+
+#define GFSCONFIGTAGSCOUNT 146  // tags-1 (release not included)
 #define GFSCONFIGTAGSIZE 50
 
 int GFSCONFIGTAGLENGTH;
@@ -31,8 +32,6 @@ int GFSNFSCONFTAGLENGTH;
 char *GFSCONFDIR;
 
 char GFSCONFIGTAGS[GFSCONFIGTAGSCOUNT][GFSCONFIGTAGSIZE]; 
-
-
 
 // Places to update when adding a configuration value
 // 
@@ -74,6 +73,26 @@ int MGMTWEBSERVERENABLED;
 #define MGMTWEBSERVERENABLEDVALIDATEMAX 1 
 #define MGMTWEBSERVERENABLEDRESTARTREQUIRED 0 
 
+// Define MGMTWEBSERVERHTTPSENABLED
+int MGMTWEBSERVERHTTPSENABLED;
+#define DEFAULTMGMTWEBSERVERHTTPSENABLED "1"
+#define MGMTWEBSERVERHTTPSENABLEDTAG "MGMTWebSever SSL Enabled"
+#define MGMTWEBSERVERHTTPSENABLEDHELP "Enable the Nexfs intergrated SSL management web server"
+#define MGMTWEBSERVERHTTPSENABLEDVALIDATESTRING 0 
+#define MGMTWEBSERVERHTTPSENABLEDVALIDATEMIN 0 
+#define MGMTWEBSERVERHTTPSENABLEDVALIDATEMAX 1 
+#define MGMTWEBSERVERHTTPSENABLEDRESTARTREQUIRED 0 
+
+// Define MGMTWEBSERVERCERTIFICATEIDX
+int MGMTWEBSERVERCERTIFICATEIDX;
+#define DEFAULTMGMTWEBSERVERCERTIFICATEIDX "0"
+#define MGMTWEBSERVERCERTIFICATEIDXTAG "MGMTWebSever SSL Certificate Index ID"
+#define MGMTWEBSERVERCERTIFICATEIDXHELP "Index ID of the SSL Certificate chain to use for management webserver https"
+#define MGMTWEBSERVERCERTIFICATEIDXVALIDATESTRING 0 
+#define MGMTWEBSERVERCERTIFICATEIDXVALIDATEMIN 0 
+#define MGMTWEBSERVERCERTIFICATEIDXVALIDATEMAX 1024 
+#define MGMTWEBSERVERCERTIFICATEIDXRESTARTREQUIRED 0 
+
 // Define MGMTWEBSERVERPORT
 int MGMTWEBSERVERPORT;
 #define DEFAULTMGMTWEBSERVERPORT "9200"
@@ -87,23 +106,23 @@ int MGMTWEBSERVERPORT;
 
 // Define MGMTWEBSERVERMAXCONNECTIONS
 int MGMTWEBSERVERMAXCONNECTIONS;
-#define DEFAULTMGMTWEBSERVERMAXCONNECTIONS "4"
+#define DEFAULTMGMTWEBSERVERMAXCONNECTIONS "8"
 #define MGMTWEBSERVERMAXCONNECTIONSTAG "Maximum Concurrent Management Webserver Connections"
-#define MGMTWEBSERVERMAXCONNECTIONSHELP "Maximum number of concurrent managment webserver connection requests, management webserver must be stopped for liveupdate"
+#define MGMTWEBSERVERMAXCONNECTIONSHELP "Maximum number of concurrent managment webserver connection requests, management webserver must be restarted to take changed setting"
 #define MGMTWEBSERVERMAXCONNECTIONSVALIDATESTRING 0 
 #define MGMTWEBSERVERMAXCONNECTIONSVALIDATEMIN 1 
 #define MGMTWEBSERVERMAXCONNECTIONSVALIDATEMAX 64 
-#define MGMTWEBSERVERMAXCONNECTIONSRESTARTREQUIRED 0 
+#define MGMTWEBSERVERMAXCONNECTIONSRESTARTREQUIRED 1 
 
 // Define CONTENTWEBSERVERMAXCONNECTIONS
 int CONTENTWEBSERVERMAXCONNECTIONS;
 #define DEFAULTCONTENTWEBSERVERMAXCONNECTIONS "64"
 #define CONTENTWEBSERVERMAXCONNECTIONSTAG "Maximum Concurrent Content Webserver Connections"
-#define CONTENTWEBSERVERMAXCONNECTIONSHELP "Maximum number of concurrent content webserver connection requests, content webserver must be stopped for liveupdate"
+#define CONTENTWEBSERVERMAXCONNECTIONSHELP "Maximum number of concurrent content webserver connection requests"
 #define CONTENTWEBSERVERMAXCONNECTIONSVALIDATESTRING 0 
 #define CONTENTWEBSERVERMAXCONNECTIONSVALIDATEMIN 1 
 #define CONTENTWEBSERVERMAXCONNECTIONSVALIDATEMAX 4096 
-#define CONTENTWEBSERVERMAXCONNECTIONSRESTARTREQUIRED 0 
+#define CONTENTWEBSERVERMAXCONNECTIONSRESTARTREQUIRED 1 
 
 // Define CONTENTWEBSERVERINTERFACE
 char CONTENTWEBSERVERINTERFACE[256];
@@ -145,6 +164,26 @@ int CONTENTWEBSERVERENABLED;
 #define CONTENTWEBSERVERENABLEDVALIDATEMIN 0 
 #define CONTENTWEBSERVERENABLEDVALIDATEMAX 1 
 #define CONTENTWEBSERVERENABLEDRESTARTREQUIRED 0 
+
+// Define CONTENTWEBSERVERHTTPSENABLED
+int CONTENTWEBSERVERHTTPSENABLED;
+#define DEFAULTCONTENTWEBSERVERHTTPSENABLED "1"
+#define CONTENTWEBSERVERHTTPSENABLEDTAG "ContentWebSever SSL Enabled"
+#define CONTENTWEBSERVERHTTPSENABLEDHELP "Enable the Nexfs intergrated SSL content web server"
+#define CONTENTWEBSERVERHTTPSENABLEDVALIDATESTRING 0 
+#define CONTENTWEBSERVERHTTPSENABLEDVALIDATEMIN 0 
+#define CONTENTWEBSERVERHTTPSENABLEDVALIDATEMAX 1 
+#define CONTENTWEBSERVERHTTPSENABLEDRESTARTREQUIRED 0 
+
+// Define CONTENTWEBSERVERCERTIFICATEIDX
+int CONTENTWEBSERVERCERTIFICATEIDX;
+#define DEFAULTCONTENTWEBSERVERCERTIFICATEIDX "0"
+#define CONTENTWEBSERVERCERTIFICATEIDXTAG "ContentWebSever SSL Certificate Index ID"
+#define CONTENTWEBSERVERCERTIFICATEIDXHELP "Index ID of the SSL Certificate chain to use for contentwebserver https"
+#define CONTENTWEBSERVERCERTIFICATEIDXVALIDATESTRING 0 
+#define CONTENTWEBSERVERCERTIFICATEIDXVALIDATEMIN 0 
+#define CONTENTWEBSERVERCERTIFICATEIDXVALIDATEMAX 1024 
+#define CONTENTWEBSERVERCERTIFICATEIDXRESTARTREQUIRED 0 
 
 // Define MGMTWEBSERVERINTERFACE
 char MGMTWEBSERVERINTERFACE[256];
@@ -342,7 +381,7 @@ int JOBSCHEDULARSALLOWMANUALWHENPAUSED;  // first highest pref local data storag
 char T1DDIR[2048];  // highest pref local data storage location
 #define DEFAULTT1DDIR "/nexfs/t1"
 #define T1DDIRTAG "Tier-1 data storage location"
-#define T1DDIRHELP "Location of the highest preformance local storage to be used for data storage, ensure that no data remains in previuos location before restarting nexfs"
+#define T1DDIRHELP "Location of the highest preformance local storage to be used for data storage, ensure that no data remains in previous location before restarting nexfs"
 #define T1DDIRVALIDATESTRING 1
 #define T1DDIRVALIDATEMIN 2 
 #define T1DDIRVALIDATEMAX 2048 
@@ -352,7 +391,7 @@ char T1DDIR[2048];  // highest pref local data storage location
 char T2DDIR[2048];  // second highest pref local data storage location
 #define DEFAULTT2DDIR "/nexfs/t2"
 #define T2DDIRTAG "Tier-2 data storage location"
-#define T2DDIRHELP "Location of the second highest preformance local storage to be used for data storage, ensure that no data remains in previuos location before restarting nexfs"
+#define T2DDIRHELP "Location of the second highest preformance local storage to be used for data storage, ensure that no data remains in previous location before restarting nexfs"
 #define T2DDIRVALIDATESTRING 1
 #define T2DDIRVALIDATEMIN 2 
 #define T2DDIRVALIDATEMAX 2048 
@@ -650,6 +689,16 @@ int T3USEHTTPS;  // Connect to T3 storage using HTTPS
 #define T3USEHTTPSVALIDATEMIN 0
 #define T3USEHTTPSVALIDATEMAX 1
 #define T3USEHTTPSRESTARTREQUIRED 0
+
+// Define T3ALLOWINVALIDSSL 
+int T3ALLOWINVALIDSSL;  // Connect to T3 storage even if the SSL cert is invalid 
+#define DEFAULTT3ALLOWINVALIDSSL "0"
+#define T3ALLOWINVALIDSSLTAG "T3 Allow invalid Cert"
+#define T3ALLOWINVALIDSSLHELP "Allow the T3 server to be used even if it returns an invalid SSL Certificate"
+#define T3ALLOWINVALIDSSLVALIDATESTRING 0
+#define T3ALLOWINVALIDSSLVALIDATEMIN 0
+#define T3ALLOWINVALIDSSLVALIDATEMAX 1
+#define T3ALLOWINVALIDSSLRESTARTREQUIRED 0
 
 // Define T3S3COMPATIBLE 
 int T3S3COMPATIBLE;  // Connect to T3 storage using HTTPS 
@@ -1141,6 +1190,16 @@ int DELETESLEEPMS;  // time in ms to sleep between each background deletion
 #define DELETESLEEPMSVALIDATEMAX 999999 
 #define DELETESLEEPMSRESTARTREQUIRED 0 
 
+// Define DELETEFAILEDRETRYMINS
+int DELETEFAILEDRETRYMINS;  // time in ms to sleep between each background deletion 
+#define DEFAULTDELETEFAILEDRETRYMINS "720"
+#define DELETEFAILEDRETRYMINSTAG "Failed Delete Retry mins"
+#define DELETEFAILEDRETRYMINSHELP "Time to wait before retrying a failed background cleanup of a deleted file datafiles"
+#define DELETEFAILEDRETRYMINSVALIDATESTRING 0
+#define DELETEFAILEDRETRYMINSVALIDATEMIN 0 
+#define DELETEFAILEDRETRYMINSVALIDATEMAX 999999 
+#define DELETEFAILEDRETRYMINSRESTARTREQUIRED 0 
+
 // Define TRUNCTATE0CREATEVERSION
 int TRUNCTATE0CREATEVERSION;
 #define DEFAULTTRUNCTATE0CREATEVERSION "1"
@@ -1443,9 +1502,9 @@ int TERMSANDCONDITIONSACCEPTED;
 int DEFAULTPOSIXUID;
 #define DEFAULTDEFAULTPOSIXUID "65534"
 #define DEFAULTPOSIXUIDTAG "Default POSIX UID"
-#define DEFAULTPOSIXUIDHELP "The Default POSIX UID to use when a content/s3 user does not have one specifically assigned, 65534 is the nobody POSIX user on many systems"
+#define DEFAULTPOSIXUIDHELP "The Default POSIX UID to use when a content/s3 user does not have one specifically assigned, 65534 is the nobody POSIX user on many systems, set to -1 for no default"
 #define DEFAULTPOSIXUIDVALIDATESTRING 0 
-#define DEFAULTPOSIXUIDVALIDATEMIN 0 
+#define DEFAULTPOSIXUIDVALIDATEMIN -1 
 #define DEFAULTPOSIXUIDVALIDATEMAX 2147483647 
 #define DEFAULTPOSIXUIDRESTARTREQUIRED 0 
 
