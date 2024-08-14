@@ -21,8 +21,7 @@
 #endif
 #endif
 
-
-#define GFSCONFIGTAGSCOUNT 146  // tags-1 (release not included)
+#define GFSCONFIGTAGSCOUNT 151  // tags-1 (release not included)
 #define GFSCONFIGTAGSIZE 50
 
 int GFSCONFIGTAGLENGTH;
@@ -113,6 +112,16 @@ int MGMTWEBSERVERMAXCONNECTIONS;
 #define MGMTWEBSERVERMAXCONNECTIONSVALIDATEMIN 1 
 #define MGMTWEBSERVERMAXCONNECTIONSVALIDATEMAX 64 
 #define MGMTWEBSERVERMAXCONNECTIONSRESTARTREQUIRED 1 
+
+// Define CONTENTWEBSERVERMAXSERVERS
+int CONTENTWEBSERVERMAXSERVERS;
+#define DEFAULTCONTENTWEBSERVERMAXSERVERS "8"
+#define CONTENTWEBSERVERMAXSERVERSTAG "Maximum Number of Content Webservers"
+#define CONTENTWEBSERVERMAXSERVERSHELP "Maximum number of concurrent content webserver servers (Connections that can be served concurrently)"
+#define CONTENTWEBSERVERMAXSERVERSVALIDATESTRING 0 
+#define CONTENTWEBSERVERMAXSERVERSVALIDATEMIN 1 
+#define CONTENTWEBSERVERMAXSERVERSVALIDATEMAX 256 
+#define CONTENTWEBSERVERMAXSERVERSRESTARTREQUIRED 1 
 
 // Define CONTENTWEBSERVERMAXCONNECTIONS
 int CONTENTWEBSERVERMAXCONNECTIONS;
@@ -630,7 +639,7 @@ int RETIERONREAD;  // retier datafile on read from slower tier
 #define RETIERONREADRESTARTREQUIRED 0 
 
 // Define PARTSIZE
-int PARTSIZE;  // data file size
+uint PARTSIZE;  // data file size
 #define DEFAULTPARTSIZE "1024000"
 #define PARTSIZETAG "Part Size"
 #define PARTSIZEHELP "Data file Part size in bytes, files are split into chunks of this size for migration to slower tiers, NOTE: existing files will retain the partsize configured when first created"
@@ -1509,7 +1518,7 @@ int DEFAULTPOSIXUID;
 #define DEFAULTPOSIXUIDRESTARTREQUIRED 0 
 
 // Define DEFAULTPOSIXGID
-int DEFAULTPOSIXGID;
+uint DEFAULTPOSIXGID;
 #define DEFAULTDEFAULTPOSIXGID "65534"
 #define DEFAULTPOSIXGIDTAG "Default POSIX GID"
 #define DEFAULTPOSIXGIDHELP "The Default POSIX GID to use when a content/s3 user does not have one specifically assigned, 65534 is the nogroup POSIX group on many systems"
@@ -1538,19 +1547,69 @@ char S3UPLOADPREFIXDIR[256];
 #define S3UPLOADPREFIXDIRVALIDATEMAX 255 
 #define S3UPLOADPREFIXDIRRESTARTREQUIRED 0
 
-// Define S3USESHA256ETAG
-int S3USESHA256ETAG;
-#define DEFAULTS3USESHA256ETAG "1"
-#define S3USESHA256ETAGTAG "Return SHA256 S3 Etag"
-#define S3USESHA256ETAGHELP "Enabled to return a sha256 check sum of uloaded data as the etag, od disable to return the unique Nexfs objects etag"
-#define S3USESHA256ETAGVALIDATESTRING 0 
-#define S3USESHA256ETAGVALIDATEMIN 0 
-#define S3USESHA256ETAGVALIDATEMAX 1 
-#define S3USESHA256ETAGRESTARTREQUIRED 0 
+// Define S3USEMD5ETAG
+int S3USEMD5ETAG;
+#define DEFAULTS3USEMD5ETAG "1"
+#define S3USEMD5ETAGTAG "Return MD5 S3 Etag"
+#define S3USEMD5ETAGHELP "Enabled to return a md5 check sum of uploaded data as the etag, or disable to return the unique Nexfs objects etag"
+#define S3USEMD5ETAGVALIDATESTRING 0 
+#define S3USEMD5ETAGVALIDATEMIN 0 
+#define S3USEMD5ETAGVALIDATEMAX 1 
+#define S3USEMD5ETAGRESTARTREQUIRED 0 
+
+// Define DEFAULTTENANT
+char DEFAULTTENANT[64];
+#define DEFAULTDEFAULTTENANT "default_tenant"
+#define DEFAULTTENANTTAG "Default Tenant"
+#define DEFAULTTENANTHELP "The default Tenant that will be used if no other tenants are created"
+#define DEFAULTTENANTVALIDATESTRING 01
+#define DEFAULTTENANTVALIDATEMIN 1 
+#define DEFAULTTENANTVALIDATEMAX 64 
+#define DEFAULTTENANTRESTARTREQUIRED 0 
+
+// Define ANONYMOUSENABLED
+int ANONYMOUSENABLED;
+#define DEFAULTANONYMOUSENABLED "1"
+#define ANONYMOUSENABLEDTAG "Anonymous Access Allowed"
+#define ANONYMOUSENABLEDHELP "Allow Anonoymous access via the Content Server"
+#define ANONYMOUSENABLEDVALIDATESTRING 0 
+#define ANONYMOUSENABLEDVALIDATEMIN 0 
+#define ANONYMOUSENABLEDVALIDATEMAX 1 
+#define ANONYMOUSENABLEDRESTARTREQUIRED 0 
+
+// Define ANONYMOUSUSERID
+char ANONYMOUSUSERID[64];
+#define DEFAULTANONYMOUSUSERID "anonymous"
+#define ANONYMOUSUSERIDTAG "Anonymous User ID"
+#define ANONYMOUSUSERIDHELP "The User ID to map Anonymous user requests to" 
+#define ANONYMOUSUSERIDVALIDATESTRING 1 
+#define ANONYMOUSUSERIDVALIDATEMIN 0 
+#define ANONYMOUSUSERIDVALIDATEMAX 64 
+#define ANONYMOUSUSERIDRESTARTREQUIRED 0 
+
+// Define ANONYMOUSENFORCEREGION
+int ANONYMOUSENFORCEREGION;
+#define DEFAULTANONYMOUSENFORCEREGION "0"
+#define ANONYMOUSENFORCEREGIONTAG "Anonymous Require Region"
+#define ANONYMOUSENFORCEREGIONHELP "If enabled Anonymous requests received must match the content web server region"
+#define ANONYMOUSENFORCEREGIONVALIDATESTRING 0 
+#define ANONYMOUSENFORCEREGIONVALIDATEMIN 0 
+#define ANONYMOUSENFORCEREGIONVALIDATEMAX 1 
+#define ANONYMOUSENFORCEREGIONRESTARTREQUIRED 0 
+
+// Define WSMAXREQUESTHEADERS
+// int WSMAXREQUESTHEADERS;
+// #define DEFAULTWSMAXREQUESTHEADERS "64"
+// #define WSMAXREQUESTHEADERSTAG "Maximum Requests Headers"
+// #define WSMAXREQUESTHEADERSHELP "The maximum number of content server or managment api request headers that will be processed"
+// #define WSMAXREQUESTHEADERSVALIDATESTRING 0 
+// #define WSMAXREQUESTHEADERSVALIDATEMIN 0 
+// #define WSMAXREQUESTHEADERSVALIDATEMAX 256 
+// #define WSMAXREQUESTHEADERSRESTARTREQUIRED 0 
 
 // Define WSCONNECTIONIDLETIMEOUTSECONDS
-int WSCONNECTIONIDLETIMEOUTSECONDS;
-#define DEFAULTWSCONNECTIONIDLETIMEOUTSECONDS "30"
+uint WSCONNECTIONIDLETIMEOUTSECONDS;
+#define DEFAULTWSCONNECTIONIDLETIMEOUTSECONDS "120"
 #define WSCONNECTIONIDLETIMEOUTSECONDSTAG "Webserver Idle Timeout"
 #define WSCONNECTIONIDLETIMEOUTSECONDSHELP "Number of second after which to timeout a client web server connection which has stopped sending traffic"
 #define WSCONNECTIONIDLETIMEOUTSECONDSVALIDATESTRING 0 
@@ -1571,7 +1630,7 @@ struct struct_nexfsconfinfo {
 size_t gfs_configkeynamesum(char *);
 int gfs_updateconfigfile(int, char *, char *, int);
 int gfs_createconffile(char *, char *, char *, char *, char *, int , int , int , int );
-int gfs_openconfigfile(char *, uint64_t *, int , int );
+int gfs_openconfigfile(char *, int64_t *, int , int );
 int gfs_getconfig(int, char *, char *, int, int);
 int gfs_loadconfig_common(int);
 int gfs_createdefaultconf(char *, char *, struct struct_nexfsconfinfo *, int);

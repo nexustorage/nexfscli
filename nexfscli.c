@@ -1,5 +1,5 @@
-// Copyright (c) 2021-2023 Nexustorage Limited.
-// Copyright (c) 2021-2023 Glen Olsen (glen @ glenolsen.net).
+// Copyright (c) 2021-2024 Nexustorage Limited.
+// Copyright (c) 2021-2024 Glen Olsen (glen @ glenolsen.net).
 // nexfscli.c Nexustorage nexfs commandline interface
 //
 // This file is part of Nexustorage Nexfs Storage stack
@@ -39,7 +39,7 @@
 //#include "gfsconf_funcs.h"
 // #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "1.01.04(23)"
+#define NEXFSCLIRELEASE "1.5"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
 
@@ -1593,9 +1593,9 @@ int stopserver(int force)
 
   if ( force == 1 )
   {
-    res = umount2(mountpoint,MNT_DETACH);
+    umount2(mountpoint,MNT_DETACH);
     sleep(1);
-    res = umount2(mountpoint,MNT_FORCE);
+    umount2(mountpoint,MNT_FORCE);
     printf("Sent hard shutdown request to Nexfs\n");
     return 0;
   } 
@@ -2032,22 +2032,22 @@ int configfiles(int argc, char *argv[])
       {
         printf("Tag Label = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVALUE,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSVALUE,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Value = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSHELP,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSHELP,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Help Text = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVSTRING,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSVSTRING,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:String = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVMIN,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSVMIN,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:Min(Value/StringLength) = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSVMAX,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSVMAX,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Validation:Max(Value/StringLength) = '%s'\n",returnbuf);
 
-        res=gfs_getconfig(GFSRESTART,argv[4],returnbuf,sizeof(returnbuf),0);
+        gfs_getconfig(GFSRESTART,argv[4],returnbuf,sizeof(returnbuf),0);
         printf("Requires Restart = '%s'\n",returnbuf);
 
         return 0;
@@ -2482,7 +2482,7 @@ int iscsi (int argc, char *argv[])
     filein=open(NEXFSOPURL,O_RDONLY | O_DIRECT);
     if ( filein == -1 )
     {
-      printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+      printf("%s: failed to open connection to Nexfs for reading, make sure nexfs is runbing and the iSCSI subsystem is enabled (error received: %s)\n",argv[0],strerror(errno));
       return -1;
     }
 
@@ -2555,7 +2555,7 @@ int iscsi (int argc, char *argv[])
   fileout=open(NEXFSOPURL,O_WRONLY | O_DIRECT);
   if ( fileout == -1 )
   {
-    printf("%s: failed to open connection to Nexfs for reading, error %s",argv[0],strerror(errno));
+    printf("%s: failed to open connection to Nexfs, check that Nexfs is running and that the iSCSI subsystem is enabled, (error received: %s)\n ",argv[0],strerror(errno));
     if ( filein != -1 ) close(filein);
     return -1;
   }
@@ -2817,7 +2817,7 @@ int init()
 int copyxattrs(char *src, char *dst)
 {
   int res=0;
-  size_t xattrslen, keylen, vallen; 
+  int64_t xattrslen, keylen, vallen; 
   size_t valmemlen=0;
   char *buf, *key, *val;
   errno=0;
@@ -3028,7 +3028,7 @@ int syncstructure(char *T1SDIR, char *T2SDIR, char *sdir, int quite)
       {
         if ( errno != ENOENT )
         {
-          if ( errno != ENOENT)  printf("%s: Could not stat destination %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
+          printf("%s: Could not stat destination %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
           return -errno;
         }
         createentry=1;
@@ -3063,14 +3063,14 @@ int syncstructure(char *T1SDIR, char *T2SDIR, char *sdir, int quite)
         }
         else
         {
-          dfp=-1;
+          
           if ( (dfp = open(destinationname,O_WRONLY | O_CREAT, stbuf.st_mode)) == -1 )
           {
             printf("%s: Could not open destination entry %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
             return -errno;
           }
 
-          sfp=-1;
+          
           if ( (sfp = open(sourcename,O_RDONLY )) == -1 )
           {
             printf("%s: Could not open source directory entry %s, error returned %s",MYNAME,destinationname,strerror(errno)); 
