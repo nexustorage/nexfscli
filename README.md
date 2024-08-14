@@ -52,6 +52,10 @@ Or to get to current loglevel of the running nexfs server, run:
 
 nexfscli liveconfig get loglevel
 
+To run nexfscli against a Nexfs server that has its configuration file in a location other than /etc/nexfs add the --confdir={/path/to/conf/dir} as the last argument, for example to get the status of a second Nexfs server running on the same system, but which its configration files in /etc/nexfs2 run:
+
+nexfscli server status --confdir=/etc/nexfs2
+
 Getting help
 
 To get a list of the most common nexfscli options run:
