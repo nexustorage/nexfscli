@@ -39,7 +39,7 @@
 //#include "gfsconf_funcs.h"
 // #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "1.5"
+#define NEXFSCLIRELEASE "1.6"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
 
