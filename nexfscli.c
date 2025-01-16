@@ -1,5 +1,5 @@
-// Copyright (c) 2021-2024 Nexustorage Limited.
-// Copyright (c) 2021-2024 Glen Olsen (glen @ glenolsen.net).
+// Copyright (c) 2021-2025 Nexustorage Limited.
+// Copyright (c) 2021-2025 Glen Olsen (glen @ glenolsen.net).
 // nexfscli.c Nexustorage nexfs commandline interface
 //
 // This file is part of Nexustorage Nexfs Storage stack
@@ -39,7 +39,7 @@
 //#include "gfsconf_funcs.h"
 // #include "gfslogging.h"
 
-#define NEXFSCLIRELEASE "1.6"
+#define NEXFSCLIRELEASE "1.7"
 #define QUEUELIST 1 
 #define NEXFSCLI 1 
 
@@ -365,6 +365,8 @@ int downloadinstallnexfsbinaries()
   const char *wgetnexfs = "/usr/bin/wget -O /usr/sbin/nexfs.server";
   const char *curlgetnexfscli = "/usr/bin/curl -L -o /usr/bin/nexfscli";
   const char *wgetnexfscli = "/usr/bin/wget -O /usr/bin/nexfscli";
+  const char *nexfsclilocation = "/usr/bin/nexfscli";
+  const char *nexfsclilocationrename = "/usr/bin/nexfscli.old";
 
   char downloadcmd[2048] = { 0 };
   int res=0;
@@ -407,6 +409,16 @@ int downloadinstallnexfsbinaries()
   {
     printf("ERR: failed to chmod to 550 /usr/sbin/nexfs.server\n");
     return -1;
+  }
+
+  // Check if the file exists
+  if (access(nexfsclilocation, F_OK) == 0) {
+    // Rename the file, overwrite if nexfsclilocationrename exists
+    if (rename(nexfsclilocation, nexfsclilocationrename) == 0) {
+      printf("Renamed %s to %s successfully.\n", nexfsclilocation, nexfsclilocationrename);
+    } else {
+      printf("Error renaming %s to %s", nexfsclilocation, nexfsclilocationrename);
+    }
   }
 
   snprintf(downloadcmd,2048,"%s %s 2>&1 | grep -q 'HTTP/2 200'",curlgetnexfscli,nexfscliurl);
@@ -2916,69 +2928,69 @@ int copyxattrs(char *src, char *dst)
 
 int replicatedirent(char *src, char *dst)
 {
-  int res=0;
+  int res = 0;
   struct stat srcstat;
-  struct timespec *srctimespec[2];
+  struct timespec srctimespec[2];  // Correctly declare as an array of two timespec structures
 
-
-  if ( stat(src, &srcstat) != 0 )
-  { 
-    res=errno;
-    printf("%s replicatedirent, failed to stat %s error %s",MYNAME,src,strerror(errno));
-    errno=res;
-    return -errno;
-  }
-  
-
-  if ( (srcstat.st_mode  & S_IFMT ) != S_IFDIR)
+  if (stat(src, &srcstat) != 0)
   {
-    if ( copyxattrs(src, dst) != 0 ) 
-    { 
-      res=errno;
-      printf("%s replicatedirent, copyxattrs failed from %s to %s, error %s",MYNAME,src,dst,strerror(errno));
-      errno=res;
+    res = errno;
+    printf("%s replicatedirent, failed to stat %s error %s", MYNAME, src, strerror(errno));
+    errno = res;
+    return -errno;
+  }
+
+  if ((srcstat.st_mode & S_IFMT) != S_IFDIR)
+  {
+    if (copyxattrs(src, dst) != 0)
+    {
+      res = errno;
+      printf("%s replicatedirent, copyxattrs failed from %s to %s, error %s", MYNAME, src, dst, strerror(errno));
+      errno = res;
       return -errno;
     }
 
-    if ( truncate(dst, srcstat.st_size) != 0 )
-    { 
-      res=errno;
-      printf("%s: replicatesdirent, failed to truncate %s to size %ld, error %s",MYNAME,dst,srcstat.st_size,strerror(errno));
-      errno=res;
+    if (truncate(dst, srcstat.st_size) != 0)
+    {
+      res = errno;
+      printf("%s: replicatesdirent, failed to truncate %s to size %ld, error %s", MYNAME, dst, srcstat.st_size, strerror(errno));
+      errno = res;
       return -errno;
     }
   }
 
-  if ( chown(dst, srcstat.st_uid, srcstat.st_gid) != 0 )
-  { 
-    res=errno;
-    printf("%s: replicatesdirent, failed to chown %s, error %s",MYNAME,dst,strerror(errno));
-    errno=res;
+  if (chown(dst, srcstat.st_uid, srcstat.st_gid) != 0)
+  {
+    res = errno;
+    printf("%s: replicatesdirent, failed to chown %s, error %s", MYNAME, dst, strerror(errno));
+    errno = res;
     return -errno;
   }
 
-  if ( chmod(dst, srcstat.st_mode) != 0 )
-  { 
-    res=errno;
-    printf("%s: replicatesdirent, failed to chmod %s, error %s",MYNAME,dst,strerror(errno));
-    errno=res;
+  if (chmod(dst, srcstat.st_mode) != 0)
+  {
+    res = errno;
+    printf("%s: replicatesdirent, failed to chmod %s, error %s", MYNAME, dst, strerror(errno));
+    errno = res;
     return -errno;
-  } 
+  }
 
+  // Correctly set the times in srctimespec
+  srctimespec[0] = srcstat.st_atim;  // Access time
+  srctimespec[1] = srcstat.st_mtim;  // Modification time
 
-  srctimespec[0]=&srcstat.st_atim;
-  srctimespec[1]=&srcstat.st_mtim;
-
-  if ( utimensat(-1,dst, *srctimespec,AT_SYMLINK_NOFOLLOW) != 0 )
-  { 
-    res=errno;
-    printf("%s:replicatedirent, failed to futimens %s, error %s",MYNAME,dst,strerror(errno));
-    errno=res;
+  // Pass srctimespec directly to utimensat, no need to dereference
+  if (utimensat(-1, dst, srctimespec, AT_SYMLINK_NOFOLLOW) != 0)
+  {
+    res = errno;
+    printf("%s: replicatedirent, failed to utimensat %s, error %s", MYNAME, dst, strerror(errno));
+    errno = res;
     return -errno;
-  } 
+  }
 
   return 0;
 }
+
 
 
 int syncstructure(char *T1SDIR, char *T2SDIR, char *sdir, int quite)
